@@ -1,0 +1,371 @@
+:root {
+  --ub-orange: #e95420;
+  --ub-aubergine: #2c001e;
+  --surface: rgba(255, 255, 255, 0.07);
+  --surface-strong: rgba(255, 255, 255, 0.12);
+  --surface-border: rgba(255, 255, 255, 0.14);
+  --text: #f5f5f7;
+  --text-dim: rgba(245, 245, 247, 0.62);
+  --radius: 16px;
+  --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  font-family: Ubuntu, "Ubuntu Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  /* Ubuntu-inspired aubergine/orange wash behind the frosted board. */
+  background:
+    radial-gradient(1200px 700px at 15% -10%, rgba(233, 84, 32, 0.32), transparent 60%),
+    radial-gradient(1000px 800px at 110% 110%, rgba(76, 25, 70, 0.5), transparent 60%),
+    linear-gradient(160deg, #20131d 0%, #2c001e 45%, #120b10 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- App shell ---------- */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px 24px 16px;
+  gap: 16px;
+}
+
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0;
+  color: var(--text);
+}
+
+.app-title .accent {
+  color: var(--ub-orange);
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+/* ---------- Frosted glass board ---------- */
+
+.board {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  padding: 20px;
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
+}
+
+/* ---------- Turntable card ---------- */
+
+.turntable {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 14px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.turntable:hover {
+  transform: translateY(-3px);
+  background: var(--surface-strong);
+  border-color: rgba(233, 84, 32, 0.5);
+}
+
+.turntable.is-playing {
+  border-color: var(--ub-orange);
+  box-shadow: 0 0 0 1px rgba(233, 84, 32, 0.35), var(--shadow);
+}
+
+.turntable-cover-wrap {
+  width: 82%;
+  aspect-ratio: 1;
+  z-index: 2;
+  transform: rotate(-3deg);
+  transition: transform 0.25s ease;
+}
+
+.turntable-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  display: block;
+  background: #222;
+}
+
+.turntable-deck {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin-top: -34px;
+  z-index: 1;
+}
+
+/* Tonearm pivots from the top-right corner onto the disc when playing. */
+.tonearm {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  width: 4px;
+  height: 74px;
+  border-radius: 4px;
+  background: linear-gradient(#bbb, #777);
+  transform-origin: 2px 2px;
+  transform: rotate(32deg);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 3;
+}
+
+.tonearm::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: -6px;
+  width: 16px;
+  height: 10px;
+  border-radius: 50%;
+  background: #999;
+}
+
+.turntable.is-playing .tonearm {
+  transform: rotate(12deg);
+}
+
+/* The vinyl disc. */
+.vinyl-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      rgba(255, 255, 255, 0.035) 0 2px,
+      transparent 2px 4px
+    ),
+    radial-gradient(circle at center, #2a2a2e 0 18%, #141416 60%, #0b0b0d 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 6px 18px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vinyl-disc.spinning {
+  animation: vinyl-spin 1.6s linear infinite;
+}
+
+.vinyl-label {
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  background: var(--ub-orange);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vinyl-label::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #111;
+}
+
+@keyframes vinyl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.turntable-title {
+  margin: 10px 0 0;
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.turntable-meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Hover action buttons overlaid on the card. */
+.turntable-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 4;
+}
+
+.turntable:hover .turntable-actions,
+.turntable.is-playing .turntable-actions {
+  opacity: 1;
+}
+
+/* ---------- Player bar ---------- */
+
+.player-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: var(--shadow);
+}
+
+.player-cover {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #222;
+}
+
+.player-meta {
+  min-width: 0;
+  flex: 0 0 180px;
+}
+
+.player-title {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 120px;
+}
+
+.player-time {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .vinyl-disc.spinning {
+    animation-duration: 4s;
+  }
+  .turntable,
+  .turntable-cover-wrap,
+  .tonearm {
+    transition: none;
+  }
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 12px 14px 10px;
+    gap: 12px;
+  }
+  .board {
+    padding: 14px;
+  }
+  .board-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .turntable-deck {
+    width: 120px;
+    height: 120px;
+  }
+  .tonearm {
+    height: 58px;
+  }
+  .player-meta {
+    flex-basis: 100px;
+  }
+  .player-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .player-progress {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
