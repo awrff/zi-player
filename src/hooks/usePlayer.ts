@@ -29,14 +29,14 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const current = items.find((i) => i.id === currentId) ?? null;
 
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
   const [paused, setPaused] = useState(true);
   const [volume, setVolumeState] = useState(1);
 
   useEffect(() => {
     const unsub = player.subscribe(() => {
       setCurrentTime(player.currentTime);
-      setDuration(player.duration);
+      setAudioDuration(player.duration);
       setPaused(player.paused);
     });
     const unsubEnded = player.onEnded(() => setPlaying(false));
@@ -45,6 +45,12 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
       unsubEnded();
     };
   }, [setPlaying]);
+
+  // Bilibili DASH audio has no duration metadata, so HTMLAudioElement.duration is
+  // Infinity (coerced to 0 by AudioPlayer). Use the duration resolved from yt-dlp
+  // as the authoritative total, falling back to the element only if metadata is
+  // missing.
+  const duration = current && current.duration > 0 ? current.duration : audioDuration;
 
   const toggle = useCallback(
     async (item: VideoItem) => {

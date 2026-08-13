@@ -76,7 +76,7 @@ function BoardApp() {
         onRename={renameVideo}
       />
 
-      <PlayerBar controls={controls} />
+      <PlayerBar controls={controls} onDelete={removeVideo} />
 
       <AddVideoModal open={addOpen} onClose={() => setAddOpen(false)} />
       <ClipboardImportPrompt url={clipUrl} onClose={() => setClipUrl(null)} />

@@ -1,12 +1,18 @@
 import { Button, Slider, Tooltip } from "antd";
-import { PauseCircleFilled, PlayCircleFilled, SoundOutlined, StopOutlined } from "@ant-design/icons";
+import { DeleteOutlined, PauseCircleFilled, PlayCircleFilled, SoundOutlined } from "@ant-design/icons";
 import { formatDuration } from "@/lib/format";
 import type { PlayerControls } from "@/hooks/usePlayer";
 
-export function PlayerBar({ controls }: { controls: PlayerControls }) {
-  const { current, playing, currentTime, duration, paused, volume, toggle, pause, stop, seek, setVolume } = controls;
+export function PlayerBar({
+  controls,
+  onDelete,
+}: {
+  controls: PlayerControls;
+  onDelete: (id: string) => void;
+}) {
+  const { current, playing, currentTime, duration, volume, toggle, seek, setVolume } = controls;
 
-  const isPlaying = playing && !paused;
+  const isPlaying = playing;
 
   return (
     <footer className="player-bar" data-testid="player-bar">
@@ -27,19 +33,17 @@ export function PlayerBar({ controls }: { controls: PlayerControls }) {
                 size="large"
                 aria-label={isPlaying ? "pause" : "play"}
                 icon={isPlaying ? <PauseCircleFilled /> : <PlayCircleFilled />}
-                onClick={() => {
-                  if (isPlaying) pause();
-                  else void toggle(current);
-                }}
+                onClick={() => void toggle(current)}
               />
             </Tooltip>
-            <Tooltip title="停止">
+            <Tooltip title="删除">
               <Button
                 type="text"
                 shape="circle"
-                aria-label="stop"
-                icon={<StopOutlined />}
-                onClick={stop}
+                danger
+                aria-label="delete"
+                icon={<DeleteOutlined />}
+                onClick={() => onDelete(current.id)}
               />
             </Tooltip>
           </div>
@@ -47,6 +51,7 @@ export function PlayerBar({ controls }: { controls: PlayerControls }) {
             <span className="player-time">{formatDuration(currentTime)}</span>
             <Slider
               aria-label="seek"
+              style={{ flex: 1 }}
               min={0}
               max={Math.max(duration, 1)}
               step={1}
