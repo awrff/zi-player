@@ -1,3 +1,4 @@
+mod audio_server;
 mod commands;
 
 use tauri::{
@@ -21,7 +22,9 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::resolve_video,
-            commands::download_audio
+            commands::download_audio,
+            commands::fetch_cover,
+            commands::audio_url
         ])
         .setup(|app| {
             let show_item = MenuItem::with_id(app, "show", "显示", true, None::<&str>)?;
@@ -52,6 +55,13 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            // Serve cached audio over a loopback HTTP server: WebKitGTK's media
+            // backend can only load <audio> from a standard http(s) scheme, not
+            // the asset:// custom protocol or blob: URLs.
+            let root = app.path().app_data_dir()?;
+            let port = audio_server::start(root).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            app.manage(audio_server::AudioServerState { port });
 
             Ok(())
         })

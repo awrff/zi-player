@@ -40,11 +40,16 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
       setPaused(player.paused);
     });
     const unsubEnded = player.onEnded(() => setPlaying(false));
+    const unsubError = player.onError((code, message) => {
+      const detail = code != null ? `（错误码 ${code}${message ? `：${message}` : ""}）` : "";
+      onError?.(`音频无法解码${detail}，请确认已打包 ffmpeg 或安装系统编解码器`);
+    });
     return () => {
       unsub();
       unsubEnded();
+      unsubError();
     };
-  }, [setPlaying]);
+  }, [setPlaying, onError]);
 
   // Bilibili DASH audio has no duration metadata, so HTMLAudioElement.duration is
   // Infinity (coerced to 0 by AudioPlayer). Use the duration resolved from yt-dlp
@@ -61,11 +66,13 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
       }
       setCurrent(item.id);
       try {
-        let src = item.cachePath;
-        if (!src) {
-          src = await native.downloadAudio(item.id, item.url);
-          setCachePath(item.id, src);
+        let path = item.cachePath;
+        // Migrate stale entries (asset:// blob: http:) persisted before the HTTP-URL switch.
+        if (!path || /^(asset|blob|https?):/.test(path)) {
+          path = await native.downloadAudio(item.id, item.url);
+          setCachePath(item.id, path);
         }
+        const src = await native.audioUrl(path);
         await player.play(src);
       } catch (err) {
         setCurrent(null);

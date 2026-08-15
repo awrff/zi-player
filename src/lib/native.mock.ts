@@ -91,6 +91,16 @@ export const mockNative: Native = {
     return `mock://audio/${encodeURIComponent(id)}.m4a`;
   },
 
+  async audioUrl(path: string): Promise<string> {
+    // In mock mode there is no real audio to decode; pass the path through.
+    return path;
+  },
+
+  async fetchCover(id: string): Promise<string> {
+    await new Promise((r) => setTimeout(r, 20));
+    return coverDataUri(id, 200);
+  },
+
   async readClipboard(): Promise<string> {
     return ensureControls().clipboard;
   },

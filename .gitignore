@@ -16,8 +16,9 @@ dist-ssr
 test-results/
 playwright-report/
 
-# yt-dlp sidecar binaries (downloaded via src-tauri/binaries/README.md)
+# yt-dlp / ffmpeg sidecar binaries (downloaded via src-tauri/binaries/README.md)
 src-tauri/binaries/yt-dlp-*
+src-tauri/binaries/ffmpeg-*
 
 # Editor directories and files
 .vscode/*

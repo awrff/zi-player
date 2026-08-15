@@ -1,26 +1,36 @@
-# yt-dlp sidecar
+# Sidecars (yt-dlp + ffmpeg)
 
-Place the yt-dlp standalone binaries here so `tauri build` can bundle them as
-sidecars. The app resolves metadata and downloads audio through them.
+Place the standalone binaries here so `tauri build` can bundle them as
+sidecars. The app uses them to resolve metadata, download audio/cover, and
+transcode audio.
 
-Required file names (Tauri appends the target triple + extension at build time):
+## Required file names
 
-| Platform            | File to place here                                        |
-| ------------------- | --------------------------------------------------------- |
-| Windows x64         | `yt-dlp-x86_64-pc-windows-msvc.exe`                       |
-| Linux x64           | `yt-dlp-x86_64-unknown-linux-gnu`                         |
-| macOS x64           | `yt-dlp-x86_64-apple-darwin`                              |
-| macOS arm64         | `yt-dlp-aarch64-apple-darwin`                             |
+Tauri appends the target triple + extension at build time.
 
-Download the latest `yt-dlp` binaries from https://github.com/yt-dlp/yt-dlp/releases
-(e.g. `yt-dlp.exe` for Windows) and rename them to the names above.
+| Binary | Windows x64                          | Linux x64                          | macOS x64                       | macOS arm64                      |
+| ------ | ------------------------------------ | ---------------------------------- | ------------------------------- | -------------------------------- |
+| yt-dlp | `yt-dlp-x86_64-pc-windows-msvc.exe`  | `yt-dlp-x86_64-unknown-linux-gnu`  | `yt-dlp-x86_64-apple-darwin`    | `yt-dlp-aarch64-apple-darwin`    |
+| ffmpeg | `ffmpeg-x86_64-pc-windows-msvc.exe`  | `ffmpeg-x86_64-unknown-linux-gnu`  | `ffmpeg-x86_64-apple-darwin`    | `ffmpeg-aarch64-apple-darwin`    |
+
+## Downloads
+
+- **yt-dlp**: https://github.com/yt-dlp/yt-dlp/releases (e.g. `yt-dlp.exe` for
+  Windows) — rename to the names above.
+- **ffmpeg**: a static build **with `libvorbis`** (e.g. BtbN
+  https://github.com/BtbN/FFmpeg-Builds/releases for Windows/Linux, or
+  evermeet.cx for macOS) — extract and rename to the names above.
 
 ## Notes
 
 - Without these binaries `tauri dev`/`tauri build` will still start, but
-  resolving/downloading videos will fail at runtime.
-- ffmpeg is intentionally **not** required: bilibili's best-audio stream is AAC
-  in a fragmented `.m4s` container, which the app renames to `.m4a` so WebView2
-  and WebKitGTK can play it directly.
-- On Linux, make sure the packaged GStreamer codecs (AAC + MP4 demux) are
-  available, e.g. Ubuntu: `gstreamer1.0-plugins-good`.
+  resolving/downloading/transcoding will fail at runtime. `cargo test` and
+  `tauri build` also require the current target's binaries to be present.
+- The app downloads bilibili's best-audio stream (AAC in a fragmented `.m4s`
+  container) and **transcodes it to Vorbis in Ogg (`.ogg`)** with ffmpeg, so
+  WebKitGTK can decode it using only `gstreamer1.0-plugins-base` (always present
+  with WebKitGTK). If ffmpeg is missing, playback falls back to the raw
+  `.m4s`/`.m4a` file.
+- Covers are downloaded by yt-dlp (`--write-thumbnail`), which supplies the
+  `Referer`/`User-Agent` headers bilibili's image CDN requires (plain `<img>`
+  requests from the WebView are 403'd).

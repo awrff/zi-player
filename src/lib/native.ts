@@ -15,8 +15,14 @@ export interface Native {
   /** Resolve video metadata (title / cover / duration ...) for a Bilibili URL. */
   resolveVideo(url: string): Promise<VideoMeta>;
 
-  /** Download the best-audio stream locally and return a playable source URL. */
+  /** Download the best-audio stream locally and return its absolute file path. */
   downloadAudio(id: string, url: string): Promise<string>;
+
+  /** Return a playable `http://127.0.0.1:<port>/...` URL for a cached audio file. */
+  audioUrl(path: string): Promise<string>;
+
+  /** Download the cover thumbnail locally and return an asset source URL. */
+  fetchCover(id: string, url: string): Promise<string>;
 
   /** Read the current system clipboard as text. */
   readClipboard(): Promise<string>;

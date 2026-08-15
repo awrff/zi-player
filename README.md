@@ -21,7 +21,7 @@ npm run tauri dev
 - **外壳**：Tauri v2（Rust + WebView）—— 安装包约 21 MB、启动快、支持全局快捷键 / 托盘 / 剪贴板
 - **前端**：React 19 + TypeScript + Vite + Ant Design 6（Ubuntu 简约风 + 磨砂玻璃主题）
 - **状态**：Zustand（`persist` 持久化到 localStorage）
-- **解析/下载**：yt-dlp（Tauri sidecar，仅音频流，无需 ffmpeg）
+- **解析/下载**：yt-dlp（Tauri sidecar，仅音频流）+ ffmpeg（Tauri sidecar，AAC → Vorbis 转码）
 - **测试**：Vitest + React Testing Library（单元）、Playwright（集成）
 
 ## 目录结构
@@ -44,7 +44,7 @@ tests/e2e/      Playwright 集成测试
 1. **Node.js 22+** 与 npm。
 2. **Rust 工具链**：https://www.rust-lang.org/learn/get-started#installing-rust
    （仅编译 `src-tauri` 需要；运行前端与所有测试不需要）。
-3. **yt-dlp sidecar**：见下方「yt-dlp sidecar」。
+3. **yt-dlp / ffmpeg sidecar**：见下方「yt-dlp sidecar」与「ffmpeg sidecar」。
 
 ## yt-dlp sidecar
 
@@ -71,6 +71,22 @@ curl -L -o src-tauri/binaries/yt-dlp-aarch64-apple-darwin \
 
 > 未放置 sidecar 时 `cargo test` / `tauri build` 会因找不到资源文件而失败；
 > 更详细的命名规则见 `src-tauri/binaries/README.md`。
+
+## ffmpeg sidecar
+
+ffmpeg 用于把下载到的 AAC 音频转码为 Vorbis（`.ogg`），使 Linux 的 WebKitGTK 只用其硬依赖的
+`gstreamer1.0-plugins-base` 即可解码，无需额外系统包。二进制同样不入库，按平台下载**含 libvorbis 的
+静态构建**，解压后重命名放入 `src-tauri/binaries/`：
+
+| 平台        | 文件                                        | 来源                                        |
+| ----------- | ------------------------------------------- | ------------------------------------------- |
+| Windows x64 | `ffmpeg-x86_64-pc-windows-msvc.exe`         | BtbN / gyan.dev 的 `ffmpeg.exe`             |
+| Linux x64   | `ffmpeg-x86_64-unknown-linux-gnu`           | BtbN 或 johnvansickle.com 静态 `ffmpeg`     |
+| macOS x64   | `ffmpeg-x86_64-apple-darwin`                | evermeet.cx / BtbN                          |
+| macOS arm64 | `ffmpeg-aarch64-apple-darwin`               | evermeet.cx / BtbN                          |
+
+> 若未放置 ffmpeg sidecar，播放会回退到原始 `.m4s`/`.m4a`（Windows 仍可播放；Linux 会因缺
+> AAC 解码器而无声、进度条不动）。
 
 ## 常用命令
 

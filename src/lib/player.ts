@@ -10,6 +10,7 @@ type Listener = () => void;
 export class AudioPlayer {
   private audio: HTMLAudioElement;
   private listeners = new Set<Listener>();
+  private errorListeners = new Set<(event: Event) => void>();
 
   constructor(audio: HTMLAudioElement) {
     this.audio = audio;
@@ -18,11 +19,16 @@ export class AudioPlayer {
     audio.addEventListener("play", this.emit);
     audio.addEventListener("pause", this.emit);
     audio.addEventListener("ended", this.emit);
-    audio.addEventListener("error", this.emit);
+    audio.addEventListener("error", this.handleError);
   }
 
   private emit = () => {
     this.listeners.forEach((fn) => fn());
+  };
+
+  private handleError = (event: Event) => {
+    this.emit();
+    this.errorListeners.forEach((fn) => fn(event));
   };
 
   /** Subscribe to any playback change; returns an unsubscribe function. */
@@ -38,6 +44,13 @@ export class AudioPlayer {
     };
     this.listeners.add(wrapped);
     return () => this.listeners.delete(wrapped);
+  };
+
+  /** Subscribe to media decode/load errors; the callback receives the `MediaError` code and message. */
+  onError = (cb: (code: number | null, message: string) => void): (() => void) => {
+    const wrapped = () => cb(this.audio.error?.code ?? null, this.audio.error?.message ?? "");
+    this.errorListeners.add(wrapped);
+    return () => this.errorListeners.delete(wrapped);
   };
 
   async play(src: string): Promise<void> {

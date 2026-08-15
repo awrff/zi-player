@@ -13,7 +13,16 @@ export const realNative: Native = {
   },
 
   async downloadAudio(id: string, url: string): Promise<string> {
-    const path = await invoke<string>("download_audio", { id, url });
+    return invoke<string>("download_audio", { id, url });
+  },
+
+  async audioUrl(path: string): Promise<string> {
+    // The Rust side resolves the loopback HTTP URL from the current server port.
+    return invoke<string>("audio_url", { path });
+  },
+
+  async fetchCover(id: string, url: string): Promise<string> {
+    const path = await invoke<string>("fetch_cover", { id, url });
     return convertFileSrc(path);
   },
 
