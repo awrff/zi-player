@@ -9,8 +9,8 @@
 # 1. 安装前端依赖
 npm install
 
-# 2. 下载 yt-dlp sidecar（二进制不入库，见下方「yt-dlp sidecar」）
-#    或直接运行下面脚本完成当前平台的下载
+# 2. 下载 sidecar 二进制（yt-dlp + ffmpeg，二进制不入库）
+bash scripts/fetch-binaries.sh
 
 # 3. 启动桌面应用
 npm run tauri dev
@@ -35,7 +35,7 @@ src/
   styles/       Ubuntu 磨砂玻璃主题 + 全局样式
 src-tauri/
   src/          Rust 命令（resolve_video / download_audio）、托盘、窗口生命周期
-  binaries/     yt-dlp sidecar 放置目录（见其中 README）
+  binaries/     yt-dlp / ffmpeg sidecar 放置目录（由 scripts/fetch-binaries.sh 生成）
 tests/e2e/      Playwright 集成测试
 ```
 
@@ -69,8 +69,8 @@ curl -L -o src-tauri/binaries/yt-dlp-aarch64-apple-darwin \
   https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos
 ```
 
-> 未放置 sidecar 时 `cargo test` / `tauri build` 会因找不到资源文件而失败；
-> 更详细的命名规则见 `src-tauri/binaries/README.md`。
+> 未放置 sidecar 时 `cargo test` / `tauri build` 会因找不到资源文件而失败。
+> 推荐直接用 `bash scripts/fetch-binaries.sh` 一键下载当前平台（`--all` 下载全部平台）。
 
 ## ffmpeg sidecar
 
