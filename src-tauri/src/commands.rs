@@ -334,8 +334,35 @@ fn transcode_error(detail: &str) -> String {
     format!("音频转码失败：{detail}。未生成可播放的 OGG，Linux 上无法解码 AAC。")
 }
 
+/// Temp path for an in-flight Ogg write. Must end with a real muxer extension
+/// (`.ogg`), not `.ogg.tmp` — ffmpeg refuses bare `.tmp` without `-f`.
+fn transcode_temp_path(cache_dir: &Path, id: &str) -> PathBuf {
+    cache_dir.join(format!("{id}.tmp.ogg"))
+}
+
+/// ffmpeg argv for AAC/raw → Vorbis Ogg. Always passes `-f ogg` so the muxer
+/// never depends on guessing from a temporary filename.
+fn ffmpeg_ogg_args(input: &str, output: &str) -> Vec<String> {
+    [
+        "-y",
+        "-nostdin",
+        "-i",
+        input,
+        "-vn",
+        "-c:a",
+        "libvorbis",
+        "-q:a",
+        "5",
+        "-f",
+        "ogg",
+        output,
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect()
+}
 /// Transcode a raw audio file to Vorbis in Ogg (`.ogg`) using the bundled ffmpeg
-/// sidecar. Writes `{id}.ogg.tmp` then renames so a failed run cannot cache junk.
+/// sidecar. Writes `{id}.tmp.ogg` then renames so a failed run cannot cache junk.
 async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str) -> Result<PathBuf, String> {
     let target = playable_target(cache_dir, id);
     if target.is_file() {
@@ -346,23 +373,15 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
     let raw_str = raw.to_string_lossy().to_string();
     // Write to a temp file then rename so a failed ffmpeg cannot leave a
     // truncated `{id}.ogg` that the next click would treat as a cache hit.
-    let tmp = cache_dir.join(format!("{id}.ogg.tmp"));
+    // Use `.tmp.ogg` (not `.ogg.tmp`) so ffmpeg can pick the ogg muxer from
+    // the extension even if `-f` were omitted; still pass `-f ogg` explicitly.
+    let tmp = transcode_temp_path(cache_dir, id);
     let _ = std::fs::remove_file(&tmp);
     let tmp_str = tmp.to_string_lossy().to_string();
+    let args = ffmpeg_ogg_args(&raw_str, &tmp_str);
 
     let output = sidecar
-        .args([
-            "-y",
-            "-nostdin",
-            "-i",
-            raw_str.as_str(),
-            "-vn",
-            "-c:a",
-            "libvorbis",
-            "-q:a",
-            "5",
-            tmp_str.as_str(),
-        ])
+        .args(args.iter().map(String::as_str).collect::<Vec<_>>())
         .output()
         .await
         .map_err(|e| {
@@ -485,6 +504,23 @@ mod tests {
     }
 
     #[test]
+    fn transcode_temp_path_ends_with_ogg_not_tmp() {
+        let tmp = transcode_temp_path(Path::new("/cache"), "BV1NZffBRESK");
+        assert_eq!(tmp, PathBuf::from("/cache/BV1NZffBRESK.tmp.ogg"));
+        let name = tmp.file_name().and_then(|s| s.to_str()).unwrap();
+        assert!(name.ends_with(".ogg"), "ffmpeg needs a real muxer extension, got {name}");
+        assert!(!name.ends_with(".ogg.tmp"));
+    }
+
+    #[test]
+    fn ffmpeg_ogg_args_force_ogg_muxer() {
+        let args = ffmpeg_ogg_args("/in.m4a", "/out.tmp.ogg");
+        assert!(args.windows(2).any(|w| w[0] == "-f" && w[1] == "ogg"));
+        assert_eq!(args.last().map(String::as_str), Some("/out.tmp.ogg"));
+        assert!(!args.iter().any(|a| a.ends_with(".ogg.tmp")));
+    }
+
+    #[test]
     fn find_playable_returns_none_when_absent() {
         assert_eq!(find_playable(Path::new("/nonexistent-dir"), "BV123"), None);
     }
@@ -494,7 +530,7 @@ mod tests {
         let dir = std::env::temp_dir().join("bilibili-board-ogg-tmp");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("BV123.ogg.tmp"), b"partial").unwrap();
+        std::fs::write(dir.join("BV123.tmp.ogg"), b"partial").unwrap();
         assert_eq!(find_playable(&dir, "BV123"), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
