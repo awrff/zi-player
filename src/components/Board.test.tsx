@@ -16,9 +16,21 @@ function makeItems(n: number): VideoItem[] {
 }
 
 describe("Board", () => {
-  it("shows an empty state when there are no items", () => {
+  it("shows Chinese empty-board guidance when there are no items", () => {
     render(<Board items={[]} playingId={null} playing={false} onToggle={() => {}} onDelete={() => {}} onRename={() => {}} />);
     expect(screen.getByTestId("board-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("唱片架还是空的");
+    expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("粘贴 B 站视频链接");
+    expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("添加");
+  });
+
+  it("hides empty-board guidance once items exist", () => {
+    render(
+      <Board items={makeItems(1)} playingId={null} playing={false} onToggle={() => {}} onDelete={() => {}} onRename={() => {}} />,
+    );
+    expect(screen.queryByTestId("board-empty")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("board-empty-guide")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-grid")).toBeInTheDocument();
   });
 
   it("renders one turntable per item", () => {
