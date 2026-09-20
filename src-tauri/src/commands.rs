@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_shell::process::Command;
 use tauri_plugin_shell::ShellExt;
 
 /// Video metadata returned to the frontend. Field names match the TS `VideoMeta`.
@@ -15,10 +16,23 @@ pub struct VideoMeta {
     pub cover: String,
 }
 
+/// Hint shown when a bundled sidecar cannot be launched (usually not fetched).
+pub(crate) fn sidecar_missing_hint(name: &str) -> String {
+    format!(
+        "无法启动 sidecar `{name}`。请先运行 `bash scripts/fetch-binaries.sh` 后重新构建（当前平台），或使用 `--all` 下载全部平台。"
+    )
+}
+
+fn open_sidecar(app: &AppHandle, name: &str) -> Result<Command, String> {
+    app.shell()
+        .sidecar(name)
+        .map_err(|e| format!("{}（{e}）", sidecar_missing_hint(name)))
+}
+
 /// Resolve metadata for a Bilibili URL via `yt-dlp -J`.
 #[tauri::command]
 pub async fn resolve_video(app: AppHandle, url: String) -> Result<VideoMeta, String> {
-    let sidecar = app.shell().sidecar("yt-dlp").map_err(|e| e.to_string())?;
+    let sidecar = open_sidecar(&app, "yt-dlp")?;
 
     let output = sidecar
         .args(["-J", "--no-playlist", "--skip-download", "--no-warnings", url.as_str()])
@@ -55,7 +69,7 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
     let raw = if let Some(existing) = find_existing(&cache_dir, &id) {
         existing
     } else {
-        let sidecar = app.shell().sidecar("yt-dlp").map_err(|e| e.to_string())?;
+        let sidecar = open_sidecar(&app, "yt-dlp")?;
         let out_template = cache_dir.join(format!("{}.%(ext)s", id));
         let out_template_str = out_template.to_string_lossy().to_string();
 
@@ -104,7 +118,7 @@ pub async fn fetch_cover(app: AppHandle, id: String, url: String) -> Result<Stri
         return Ok(existing.to_string_lossy().to_string());
     }
 
-    let sidecar = app.shell().sidecar("yt-dlp").map_err(|e| e.to_string())?;
+    let sidecar = open_sidecar(&app, "yt-dlp")?;
     let out_template = cache_dir.join(format!("{}.%(ext)s", id));
     let out_template_str = out_template.to_string_lossy().to_string();
 
@@ -239,11 +253,18 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
         return Some(target);
     }
 
-    let sidecar = app.shell().sidecar("ffmpeg").ok()?;
+    let sidecar = match open_sidecar(app, "ffmpeg") {
+        Ok(cmd) => cmd,
+        Err(e) => {
+            // Linux WebKitGTK cannot decode AAC; falling back here is the usual "no audio" path.
+            eprintln!("{e}");
+            return None;
+        }
+    };
     let raw_str = raw.to_string_lossy().to_string();
     let target_str = target.to_string_lossy().to_string();
 
-    let output = sidecar
+    let output = match sidecar
         .args([
             "-y",
             "-nostdin",
@@ -258,9 +279,19 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
         ])
         .output()
         .await
-        .ok()?;
+    {
+        Ok(output) => output,
+        Err(e) => {
+            eprintln!("ffmpeg sidecar 执行失败（{e}）；回退原始音频，Linux 上通常会无声。");
+            return None;
+        }
+    };
 
     if !output.status.success() || !target.is_file() {
+        eprintln!(
+            "ffmpeg 转码失败：{}；回退原始音频，Linux 上通常会无声。",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
         return None;
     }
 
@@ -307,6 +338,14 @@ mod tests {
             "thumbnail": "https://example.com/cover.jpg",
             "webpage_url": "https://www.bilibili.com/video/BV1xx411c7mD"
         }"#
+    }
+
+    #[test]
+    fn sidecar_hint_names_fetch_script() {
+        let hint = sidecar_missing_hint("ffmpeg");
+        assert!(hint.contains("ffmpeg"));
+        assert!(hint.contains("scripts/fetch-binaries.sh"));
+        assert!(hint.contains("--all"));
     }
 
     #[test]
