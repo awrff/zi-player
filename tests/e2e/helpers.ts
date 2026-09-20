@@ -29,6 +29,20 @@ export async function gotoBoard(page: Page, items: SeedItem[] = []): Promise<voi
   await page.goto("/");
 }
 
+/**
+ * Playwright's locator.dragTo() uses mouse moves and does not fire HTML5
+ * drag events. Dispatch the events the Board listeners actually handle.
+ */
+export async function html5DragAndDrop(
+  source: import("@playwright/test").Locator,
+  target: import("@playwright/test").Locator,
+): Promise<void> {
+  await source.dispatchEvent("dragstart");
+  await target.dispatchEvent("dragover");
+  await target.dispatchEvent("drop");
+  await source.dispatchEvent("dragend");
+}
+
 export const sampleItems: SeedItem[] = [
   {
     id: "BV1xx411c7mD",

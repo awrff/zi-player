@@ -40,7 +40,11 @@ export function Turntable({ item, playing, onToggle, onDelete, onRename }: Turnt
         }
       }}
     >
-      <div className="turntable-actions" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="turntable-actions"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.preventDefault()}
+      >
         <Tooltip title={playing ? "暂停" : "播放"}>
           <Button
             size="small"
@@ -79,7 +83,7 @@ export function Turntable({ item, playing, onToggle, onDelete, onRename }: Turnt
       </div>
 
       <div className="turntable-cover-wrap">
-        <img className="turntable-cover" src={item.cover} alt={item.title} />
+        <img className="turntable-cover" src={item.cover} alt={item.title} draggable={false} />
       </div>
 
       <div className="turntable-deck">
