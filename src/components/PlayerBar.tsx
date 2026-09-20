@@ -10,7 +10,7 @@ export function PlayerBar({
   controls: PlayerControls;
   onDelete: (id: string) => void;
 }) {
-  const { current, playing, currentTime, duration, volume, toggle, seek, setVolume } = controls;
+  const { current, playing, currentTime, duration, volume, lastError, toggle, seek, setVolume } = controls;
 
   const isPlaying = playing;
 
@@ -73,7 +73,16 @@ export function PlayerBar({
               style={{ width: 90 }}
             />
           </div>
+          {lastError ? (
+            <span className="player-error" role="alert" data-testid="player-error">
+              {lastError}
+            </span>
+          ) : null}
         </>
+      ) : lastError ? (
+        <span className="player-error" role="alert" data-testid="player-error">
+          {lastError}
+        </span>
       ) : (
         <span style={{ color: "var(--text-dim)", fontSize: 13 }}>未在播放</span>
       )}

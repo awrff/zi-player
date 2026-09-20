@@ -95,10 +95,10 @@ describe("AudioPlayer", () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it("never throws when play() rejects", async () => {
+  it("propagates play() rejection so the UI can show it", async () => {
     const fake = new FakeAudio();
     fake.play = () => Promise.reject(new Error("NotSupported"));
     const player = new AudioPlayer(fake as unknown as HTMLAudioElement);
-    await expect(player.play("mock://x")).resolves.toBeUndefined();
+    await expect(player.play("mock://x")).rejects.toThrow("NotSupported");
   });
 });

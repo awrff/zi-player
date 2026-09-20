@@ -62,7 +62,7 @@ tests/e2e/      Playwright 集成测试
      其他发行版对应包名见 [Tauri 官方先决条件](https://v2.tauri.app/start/prerequisites/)。
    - **macOS**：Xcode Command Line Tools（`xcode-select --install`）。
    - **Windows**：Visual Studio 「使用 C++ 的桌面开发」+ Edge WebView2 Runtime。
-4. **yt-dlp / ffmpeg sidecar**：见下一节。二进制不入库，缺了会直接编不过或 Linux 上无声。
+4. **yt-dlp / ffmpeg sidecar**：见下一节。二进制不入库，缺了会编不过，或播放时弹出中文错误。
 
 ## Sidecar 二进制（yt-dlp + ffmpeg）
 
@@ -109,7 +109,7 @@ bash scripts/check-sidecars.sh            # 校验脚本路径、externalBin、A
 ### 缺文件时会发生什么
 
 - **构建期**：`src-tauri/build.rs` 会在 `tauri build` / `cargo test` 前检查当前 target 的两个 sidecar；找不到就 panic，并提示运行 `bash scripts/fetch-binaries.sh`。
-- **运行期**：yt-dlp 拉不起来会返回明确错误；ffmpeg 缺失时会回退到原始 `.m4s`/`.m4a`。Windows 往往还能播；**Linux 缺 AAC 解码器会无声、进度条不动**。请用 `--check` 确认 ffmpeg 已打包。
+- **运行期**：yt-dlp / ffmpeg 失败都会返回中文错误，前端 Toast 与播放条会提示。**不再静默回退到原始 AAC**（Linux WebKitGTK 上通常无声、进度条不动）。请用 `--check` 确认 ffmpeg 已打包。
 
 ## 常用命令
 

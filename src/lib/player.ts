@@ -54,15 +54,11 @@ export class AudioPlayer {
   };
 
   async play(src: string): Promise<void> {
-    try {
-      if (this.audio.src !== src) {
-        this.audio.src = src;
-        this.audio.currentTime = 0;
-      }
-      await this.audio.play();
-    } catch {
-      // Playback failure is surfaced by the caller; never throw out of here.
+    if (this.audio.src !== src) {
+      this.audio.src = src;
+      this.audio.currentTime = 0;
     }
+    await this.audio.play();
   }
 
   pause(): void {

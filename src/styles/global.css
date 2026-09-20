@@ -356,6 +356,14 @@ body {
   white-space: nowrap;
 }
 
+.player-error {
+  color: #ff8a80;
+  font-size: 12px;
+  flex: 1 1 160px;
+  min-width: 0;
+  line-height: 1.4;
+}
+
 /* ---------- Reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {

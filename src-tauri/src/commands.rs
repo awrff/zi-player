@@ -85,21 +85,20 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
             ])
             .output()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| download_error(&e.to_string()))?;
 
         if !output.status.success() {
-            return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+            return Err(download_error(&String::from_utf8_lossy(&output.stderr)));
         }
 
         find_existing(&cache_dir, &id).ok_or_else(|| "下载完成但找不到音频文件".to_string())?
     };
 
     // Transcode to Vorbis (Ogg) so WebKitGTK can decode it with base GStreamer plugins.
-    // Fall back to the raw container when ffmpeg is missing or fails.
-    match transcode_audio(&app, &raw, &cache_dir, &id).await {
-        Some(playable) => Ok(playable.to_string_lossy().to_string()),
-        None => Ok(normalize_container(&raw).to_string_lossy().to_string()),
-    }
+    // Fail loudly when ffmpeg is missing or transcode fails — do not return raw AAC
+    // (Linux WebKitGTK typically plays that as silence with a frozen progress bar).
+    let playable = finish_download(transcode_audio(&app, &raw, &cache_dir, &id).await, raw)?;
+    Ok(playable.to_string_lossy().to_string())
 }
 
 /// Download the cover thumbnail locally and return its absolute path.
@@ -150,12 +149,15 @@ pub async fn fetch_cover(app: AppHandle, id: String, url: String) -> Result<Stri
 #[tauri::command]
 pub fn audio_url(app: AppHandle, path: String) -> Result<String, String> {
     let port = app.state::<crate::audio_server::AudioServerState>().port;
-    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let root = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("无法定位音频缓存目录：{e}"))?;
     let target = Path::new(&path);
 
     // Defence in depth: only expose files under our own data directory.
     if !path_within(&root, target) {
-        return Err("路径不在应用数据目录内".to_string());
+        return Err("无法生成播放地址：路径不在应用数据目录内".to_string());
     }
 
     let rel = target.strip_prefix(&root).map_err(|e| e.to_string())?;
@@ -244,27 +246,45 @@ fn playable_target(dir: &Path, id: &str) -> PathBuf {
     dir.join(format!("{}.ogg", id))
 }
 
+/// User-facing Chinese error when yt-dlp cannot fetch the audio stream.
+fn download_error(detail: &str) -> String {
+    let detail = detail.trim();
+    if detail.is_empty() {
+        "下载音频失败：yt-dlp 未返回原因".to_string()
+    } else {
+        format!("下载音频失败：{detail}")
+    }
+}
+
+/// User-facing Chinese error when Vorbis transcode cannot complete.
+fn transcode_error(detail: &str) -> String {
+    let detail = detail.trim();
+    format!(
+        "音频转码失败：{detail}。未生成可播放的 OGG，Linux 上无法解码 AAC。请运行 `bash scripts/fetch-binaries.sh` 后重新构建。"
+    )
+}
+
+/// After transcode: success keeps the OGG path; failure is a hard error.
+/// The raw AAC/m4a path is intentionally unused — returning it used to look
+/// like success on Linux while HTMLAudioElement decoded nothing.
+fn finish_download(transcoded: Result<PathBuf, String>, raw: PathBuf) -> Result<PathBuf, String> {
+    let _ = raw; // ponytail: no silent AAC fallback; fail so the UI can toast.
+    transcoded.map_err(|e| transcode_error(&e))
+}
+
 /// Transcode a raw audio file to Vorbis in Ogg (`.ogg`) using the bundled ffmpeg
-/// sidecar. Returns the transcoded path on success, or `None` so the caller can
-/// fall back to the raw container (e.g. when ffmpeg is missing on this build).
-async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str) -> Option<PathBuf> {
+/// sidecar. Returns the transcoded path, or a short detail for `finish_download`.
+async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str) -> Result<PathBuf, String> {
     let target = playable_target(cache_dir, id);
     if target.is_file() {
-        return Some(target);
+        return Ok(target);
     }
 
-    let sidecar = match open_sidecar(app, "ffmpeg") {
-        Ok(cmd) => cmd,
-        Err(e) => {
-            // Linux WebKitGTK cannot decode AAC; falling back here is the usual "no audio" path.
-            eprintln!("{e}");
-            return None;
-        }
-    };
+    let sidecar = open_sidecar(app, "ffmpeg")?;
     let raw_str = raw.to_string_lossy().to_string();
     let target_str = target.to_string_lossy().to_string();
 
-    let output = match sidecar
+    let output = sidecar
         .args([
             "-y",
             "-nostdin",
@@ -279,20 +299,16 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
         ])
         .output()
         .await
-    {
-        Ok(output) => output,
-        Err(e) => {
-            eprintln!("ffmpeg sidecar 执行失败（{e}）；回退原始音频，Linux 上通常会无声。");
-            return None;
-        }
-    };
+        .map_err(|e| format!("ffmpeg sidecar 执行失败（{e}）"))?;
 
     if !output.status.success() || !target.is_file() {
-        eprintln!(
-            "ffmpeg 转码失败：{}；回退原始音频，Linux 上通常会无声。",
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-        return None;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let detail = stderr.trim();
+        return Err(if detail.is_empty() {
+            "ffmpeg 转码未写出 OGG 文件".to_string()
+        } else {
+            detail.to_string()
+        });
     }
 
     // Best-effort cleanup: drop the raw source to keep the cache lean.
@@ -300,26 +316,14 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
         let _ = std::fs::remove_file(raw);
     }
 
-    Some(target)
+    Ok(target)
 }
 
 /// The target path after container normalization (pure — does not touch disk).
+#[allow(dead_code)] // kept for the m4s→m4a unit test; runtime AAC fallback was removed
 fn normalized_path(path: &Path) -> PathBuf {
     if path.extension().and_then(|e| e.to_str()) == Some("m4s") {
         path.with_extension("m4a")
-    } else {
-        path.to_path_buf()
-    }
-}
-
-/// Rename containers that browsers cannot play into a playable one.
-/// This is the fallback path when ffmpeg is unavailable: Bilibili DASH audio is
-/// AAC inside a fragmented `.m4s` container, and renaming to `.m4a` is enough for
-/// WebView2 (and WebKitGTK with the right GStreamer codecs) to play it.
-fn normalize_container(path: &Path) -> PathBuf {
-    let target = normalized_path(path);
-    if target != path && std::fs::rename(path, &target).is_ok() {
-        target
     } else {
         path.to_path_buf()
     }
@@ -346,6 +350,30 @@ mod tests {
         assert!(hint.contains("ffmpeg"));
         assert!(hint.contains("scripts/fetch-binaries.sh"));
         assert!(hint.contains("--all"));
+    }
+
+    #[test]
+    fn transcode_error_is_chinese_and_does_not_pretend_success() {
+        let msg = transcode_error("无法启动 sidecar `ffmpeg`");
+        assert!(msg.contains("转码失败"));
+        assert!(msg.contains("ffmpeg"));
+        assert!(msg.contains("OGG") || msg.contains("ogg"));
+        assert!(!msg.contains("回退"));
+    }
+
+    #[test]
+    fn transcode_miss_is_a_hard_error_not_aac_fallback() {
+        let raw = PathBuf::from("/cache/BV123.m4a");
+        let err = finish_download(Err("ffmpeg 缺失".into()), raw).unwrap_err();
+        assert!(err.contains("转码失败"));
+        assert!(err.contains("ffmpeg"));
+    }
+
+    #[test]
+    fn download_error_is_chinese() {
+        let msg = download_error("HTTP Error 403: Forbidden");
+        assert!(msg.contains("下载音频失败"));
+        assert!(msg.contains("403"));
     }
 
     #[test]

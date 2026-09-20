@@ -11,11 +11,33 @@ export interface PlayerControls {
   duration: number;
   paused: boolean;
   volume: number;
+  /** Last playback/download/decode error, in Chinese; null when none. */
+  lastError: string | null;
   toggle: (item: VideoItem) => Promise<void>;
   pause: () => void;
   stop: () => void;
   seek: (seconds: number) => void;
   setVolume: (value: number) => void;
+}
+
+/** Flatten Tauri / Error / string rejections into the message the UI shows. */
+export function hostErrorText(err: unknown): string {
+  if (typeof err === "string") return err;
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === "object" && "message" in err) {
+    const message = (err as { message: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return String(err);
+}
+
+export function formatPlayError(title: string, err: unknown): string {
+  return `无法播放「${title}」：${hostErrorText(err)}`;
+}
+
+export function formatDecodeError(code: number | null, message: string): string {
+  const detail = code != null ? `（错误码 ${code}${message ? `：${message}` : ""}）` : "";
+  return `音频无法解码${detail}，请确认已打包 ffmpeg 或安装系统编解码器`;
 }
 
 export function usePlayer(onError?: (msg: string) => void): PlayerControls {
@@ -32,6 +54,7 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const [audioDuration, setAudioDuration] = useState(0);
   const [paused, setPaused] = useState(true);
   const [volume, setVolumeState] = useState(1);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = player.subscribe(() => {
@@ -41,8 +64,10 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     });
     const unsubEnded = player.onEnded(() => setPlaying(false));
     const unsubError = player.onError((code, message) => {
-      const detail = code != null ? `（错误码 ${code}${message ? `：${message}` : ""}）` : "";
-      onError?.(`音频无法解码${detail}，请确认已打包 ffmpeg 或安装系统编解码器`);
+      const msg = formatDecodeError(code, message);
+      setLastError(msg);
+      setPlaying(false);
+      onError?.(msg);
     });
     return () => {
       unsub();
@@ -65,6 +90,7 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
         return;
       }
       setCurrent(item.id);
+      setLastError(null);
       try {
         let path = item.cachePath;
         // Migrate stale entries (asset:// blob: http:) persisted before the HTTP-URL switch.
@@ -76,7 +102,9 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
         await player.play(src);
       } catch (err) {
         setCurrent(null);
-        onError?.(`无法播放「${item.title}」：${String(err)}`);
+        const msg = formatPlayError(item.title, err);
+        setLastError(msg);
+        onError?.(msg);
       }
     },
     [currentId, playing, setCurrent, setPlaying, setCachePath, onError],
@@ -99,5 +127,5 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     setVolumeState(player.volume);
   }, []);
 
-  return { current, playing, currentTime, duration, paused, volume, toggle, pause, stop, seek, setVolume };
+  return { current, playing, currentTime, duration, paused, volume, lastError, toggle, pause, stop, seek, setVolume };
 }
