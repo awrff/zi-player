@@ -27,6 +27,8 @@ export function AddVideoModal({ open, onClose }: AddVideoModalProps) {
       message.success(`已添加「${result.item.title}」`);
       setUrl("");
       onClose();
+    } else if (result.reason === "duplicate") {
+      message.warning(importErrorMessage(result));
     } else {
       message.error(importErrorMessage(result));
     }

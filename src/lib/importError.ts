@@ -71,7 +71,7 @@ export function importErrorMessage(
         ? "剪贴板内容不是 B 站视频链接"
         : "请输入有效的 B 站视频链接（BV / av / b23.tv）";
     case "duplicate":
-      return "这条视频已经在唱片架上了";
+      return "该视频已在看板上，无需重复添加";
     case "network":
       return IMPORT_ERROR_COPY.network;
     case "unavailable":
