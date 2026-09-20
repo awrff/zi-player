@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- BiliBoard mark: vinyl on aubergine, matching the Ubuntu-orange board theme. -->
+  <rect width="1024" height="1024" fill="#1b1018"/>
+  <circle cx="512" cy="512" r="408" fill="#0b0b0d"/>
+  <circle cx="512" cy="512" r="406" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="4"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="3">
+    <circle cx="512" cy="512" r="372"/>
+    <circle cx="512" cy="512" r="344"/>
+    <circle cx="512" cy="512" r="316"/>
+    <circle cx="512" cy="512" r="288"/>
+    <circle cx="512" cy="512" r="260"/>
+    <circle cx="512" cy="512" r="232"/>
+  </g>
+  <circle cx="512" cy="512" r="168" fill="#2a2a2e"/>
+  <circle cx="512" cy="512" r="148" fill="#e95420"/>
+  <circle cx="512" cy="512" r="22" fill="#111111"/>
+</svg>
