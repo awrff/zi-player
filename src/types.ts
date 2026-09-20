@@ -25,4 +25,4 @@ export interface VideoItem extends VideoMeta {
 /** Result of importing a URL into the board. */
 export type ImportResult =
   | { ok: true; item: VideoItem }
-  | { ok: false; reason: "not-a-url" | "not-bilibili" | "duplicate" | "resolve-failed" };
+  | { ok: false; reason: "not-a-url" | "not-bilibili" | "duplicate" | "resolve-failed"; detail?: string };

@@ -102,6 +102,10 @@ export const mockNative: Native = {
     return coverDataUri(id, 200);
   },
 
+  async checkSidecars(): Promise<string[]> {
+    return [];
+  },
+
   async readClipboard(): Promise<string> {
     return ensureControls().clipboard;
   },

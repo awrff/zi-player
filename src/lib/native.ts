@@ -24,6 +24,9 @@ export interface Native {
   /** Download the cover thumbnail locally and return an asset source URL. */
   fetchCover(id: string, url: string): Promise<string>;
 
+  /** Names of missing sidecars (`yt-dlp` / `ffmpeg`). Empty when both can launch. */
+  checkSidecars(): Promise<string[]>;
+
   /** Read the current system clipboard as text. */
   readClipboard(): Promise<string>;
 

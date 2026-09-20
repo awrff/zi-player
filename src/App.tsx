@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { App as AntApp, Button, ConfigProvider, Input, Tooltip } from "antd";
 import { ClearOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { theme } from "@/styles/theme";
@@ -10,6 +10,8 @@ import { Board } from "@/components/Board";
 import { PlayerBar } from "@/components/PlayerBar";
 import { AddVideoModal } from "@/components/AddVideoModal";
 import { ClipboardImportPrompt } from "@/components/ClipboardImportPrompt";
+import { native } from "@/lib/native";
+import { SIDECAR_GUIDANCE } from "@/lib/sidecarError";
 import "./styles/global.css";
 
 function BoardApp() {
@@ -28,6 +30,17 @@ function BoardApp() {
 
   const onError = useCallback((msg: string) => message.error(msg), [message]);
   const controls = usePlayer(onError);
+
+  useEffect(() => {
+    void native
+      .checkSidecars()
+      .then((missing) => {
+        if (missing.length > 0) message.error(SIDECAR_GUIDANCE);
+      })
+      .catch(() => {
+        // ponytail: browser / old builds without the command should stay quiet
+      });
+  }, [message]);
 
   useGlobalShortcut();
   useClipboardWatch(setClipUrl);

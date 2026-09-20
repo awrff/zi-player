@@ -1,5 +1,6 @@
 import { native } from "./native";
 import { extractBiliId, isBilibiliUrl, normalizeBiliUrl } from "./parser";
+import { formatSidecarGuidance } from "./sidecarError";
 import { useVideoStore } from "@/store/videoStore";
 import type { ImportResult } from "@/types";
 
@@ -30,7 +31,7 @@ export async function importVideo(rawUrl: string): Promise<ImportResult> {
     const item = useVideoStore.getState().addVideo(meta);
     if (!item) return { ok: false, reason: "duplicate" };
     return { ok: true, item };
-  } catch {
-    return { ok: false, reason: "resolve-failed" };
+  } catch (err) {
+    return { ok: false, reason: "resolve-failed", detail: formatSidecarGuidance(err) ?? undefined };
   }
 }

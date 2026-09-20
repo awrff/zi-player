@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { native } from "@/lib/native";
 import { player } from "@/lib/player";
+import { formatSidecarGuidance } from "@/lib/sidecarError";
 import { useVideoStore } from "@/store/videoStore";
 import type { VideoItem } from "@/types";
 
@@ -120,7 +121,7 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
         await player.play(src);
       } catch (err) {
         setCurrent(null);
-        reportError(formatPlayError(item.title, err));
+        reportError(formatPlayError(item.title, formatSidecarGuidance(err) ?? err));
       }
     },
     [currentId, playing, setCurrent, setPlaying, setCachePath, reportError],

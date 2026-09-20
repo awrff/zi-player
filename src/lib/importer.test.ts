@@ -66,4 +66,16 @@ describe("importVideo", () => {
     const result = await importVideo("https://www.bilibili.com/video/BV1xx411c7mD");
     expect(result).toEqual({ ok: false, reason: "resolve-failed" });
   });
+
+  it("surfaces Chinese fetch-binaries guidance when a sidecar is missing", async () => {
+    h.resolveVideo.mockRejectedValue(new Error("Error: No such file or directory (os error 2)"));
+    const result = await importVideo("https://www.bilibili.com/video/BV1xx411c7mD");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("resolve-failed");
+    expect(result.detail).toMatch(/fetch-binaries/);
+    expect(result.detail).toMatch(/[\u4e00-\u9fff]/);
+    expect(result.detail).not.toMatch(/os error|No such file/i);
+  });
 });
+
