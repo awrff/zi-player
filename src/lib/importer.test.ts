@@ -64,7 +64,35 @@ describe("importVideo", () => {
   it("reports resolve failures", async () => {
     h.resolveVideo.mockRejectedValue(new Error("boom"));
     const result = await importVideo("https://www.bilibili.com/video/BV1xx411c7mD");
-    expect(result).toEqual({ ok: false, reason: "resolve-failed" });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("resolve-failed");
+    expect(result.detail).toMatch(/[\u4e00-\u9fff]/);
+  });
+
+  it("surfaces Chinese network copy when resolve times out", async () => {
+    h.resolveVideo.mockRejectedValue(
+      new Error("ERROR: Unable to download webpage: <urlopen error [Errno 110] Connection timed out>"),
+    );
+    const result = await importVideo("https://www.bilibili.com/video/BV1xx411c7mD");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("network");
+    expect(result.detail).toMatch(/网络/);
+    expect(result.detail).toMatch(/[\u4e00-\u9fff]/);
+    expect(result.detail).not.toBe("解析失败，请检查链接后重试");
+  });
+
+  it("surfaces Chinese unavailable copy when the video cannot be fetched", async () => {
+    h.resolveVideo.mockRejectedValue(
+      new Error("ERROR: [BiliBili] BV1xx411c7mD: Unable to download webpage: HTTP Error 404: Not Found"),
+    );
+    const result = await importVideo("https://www.bilibili.com/video/BV1xx411c7mD");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("unavailable");
+    expect(result.detail).toMatch(/[\u4e00-\u9fff]/);
+    expect(result.detail).not.toBe("解析失败，请检查链接后重试");
   });
 
   it("surfaces Chinese fetch-binaries guidance when a sidecar is missing", async () => {

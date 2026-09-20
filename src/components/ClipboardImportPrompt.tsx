@@ -2,6 +2,7 @@ import { useState } from "react";
 import { App, Button, Modal, Typography } from "antd";
 import { CopyOutlined, PlusOutlined } from "@ant-design/icons";
 import { importVideo } from "@/lib/importer";
+import { importErrorMessage } from "@/lib/importError";
 
 interface ClipboardImportPromptProps {
   url: string | null;
@@ -22,15 +23,7 @@ export function ClipboardImportPrompt({ url, onClose }: ClipboardImportPromptPro
     if (result.ok) {
       message.success(`已从剪贴板导入「${result.item.title}」`);
     } else {
-      const reasons: Record<string, string> = {
-        "not-a-url": "剪贴板内容不是有效链接",
-        "not-bilibili": "剪贴板内容不是 B 站视频链接",
-        duplicate: "这条视频已经在唱片架上了",
-        "resolve-failed": "解析失败，请检查链接后重试",
-      };
-      message.error(
-        result.reason === "resolve-failed" && result.detail ? result.detail : reasons[result.reason],
-      );
+      message.error(importErrorMessage(result, "clipboard"));
     }
     onClose();
   };

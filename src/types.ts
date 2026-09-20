@@ -22,7 +22,16 @@ export interface VideoItem extends VideoMeta {
   cachePath?: string;
 }
 
+export type ImportFailReason =
+  | "not-a-url"
+  | "not-bilibili"
+  | "duplicate"
+  | "network"
+  | "unavailable"
+  | "parse-failed"
+  | "resolve-failed";
+
 /** Result of importing a URL into the board. */
 export type ImportResult =
   | { ok: true; item: VideoItem }
-  | { ok: false; reason: "not-a-url" | "not-bilibili" | "duplicate" | "resolve-failed"; detail?: string };
+  | { ok: false; reason: ImportFailReason; detail?: string };

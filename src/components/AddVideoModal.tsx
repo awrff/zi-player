@@ -2,6 +2,7 @@ import { useState } from "react";
 import { App, Button, Input, Modal, Space } from "antd";
 import { LinkOutlined } from "@ant-design/icons";
 import { importVideo } from "@/lib/importer";
+import { importErrorMessage } from "@/lib/importError";
 
 interface AddVideoModalProps {
   open: boolean;
@@ -27,15 +28,7 @@ export function AddVideoModal({ open, onClose }: AddVideoModalProps) {
       setUrl("");
       onClose();
     } else {
-      const reasons: Record<string, string> = {
-        "not-a-url": "请输入 B 站视频链接",
-        "not-bilibili": "请输入有效的 B 站视频链接（BV / av / b23.tv）",
-        duplicate: "这条视频已经在唱片架上了",
-        "resolve-failed": "解析失败，请检查链接后重试",
-      };
-      message.error(
-        result.reason === "resolve-failed" && result.detail ? result.detail : reasons[result.reason],
-      );
+      message.error(importErrorMessage(result));
     }
   };
 
