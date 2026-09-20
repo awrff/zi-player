@@ -159,3 +159,55 @@ describe("usePlayer playback errors", () => {
     expect(result.current.lastError).toBe(msg);
   });
 });
+
+describe("usePlayer preparing", () => {
+  it("is true while download/transcode is in flight and clears on success play", async () => {
+    let finishDownload!: (path: string) => void;
+    h.downloadAudio.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finishDownload = resolve;
+        }),
+    );
+    h.audioUrl.mockResolvedValue("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
+    h.play.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => usePlayer());
+
+    let togglePromise!: Promise<void>;
+    await act(async () => {
+      togglePromise = result.current.toggle(item);
+    });
+
+    expect(result.current.preparing).toBe(true);
+    expect(result.current.lastError).toBeNull();
+    expect(h.play).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishDownload("/data/audio/BV1xx411c7mD.ogg");
+      await togglePromise;
+    });
+
+    expect(result.current.preparing).toBe(false);
+    expect(h.play).toHaveBeenCalledWith("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
+    expect(result.current.lastError).toBeNull();
+  });
+
+  it("clears preparing on failure and keeps the #4 Chinese lastError", async () => {
+    h.downloadAudio.mockRejectedValue("音频转码失败：无法启动 sidecar `ffmpeg`。未生成可播放的 OGG。");
+    const onError = vi.fn();
+    const { result } = renderHook(() => usePlayer(onError));
+
+    await act(async () => {
+      await result.current.toggle(item);
+    });
+
+    expect(result.current.preparing).toBe(false);
+    expect(onError).toHaveBeenCalledTimes(1);
+    const msg = onError.mock.calls[0][0] as string;
+    expect(msg).toMatch(/无法播放/);
+    expect(msg).toMatch(/测试曲目/);
+    expect(msg).toMatch(/转码失败|ffmpeg/);
+    expect(result.current.lastError).toBe(msg);
+  });
+});

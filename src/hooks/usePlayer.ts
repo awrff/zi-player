@@ -14,12 +14,17 @@ export interface PlayerControls {
   volume: number;
   /** Last playback/download/decode error, in Chinese; null when none. */
   lastError: string | null;
+  /** True while download / transcode / audio_url is in flight. */
+  preparing: boolean;
   toggle: (item: VideoItem) => Promise<void>;
   pause: () => void;
   stop: () => void;
   seek: (seconds: number) => void;
   setVolume: (value: number) => void;
 }
+
+/** Inline / status copy shown while a vinyl is preparing to play. */
+export const PREPARING_HINT = "正在准备音频…";
 
 /** Flatten Tauri / Error / string rejections into the message the UI shows. */
 export function hostErrorText(err: unknown): string {
@@ -64,6 +69,7 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const [paused, setPaused] = useState(true);
   const [volume, setVolumeState] = useState(1);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const reportedRef = useRef(false);
 
   const reportError = useCallback(
@@ -110,6 +116,7 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
       setCurrent(item.id);
       reportedRef.current = false;
       setLastError(null);
+      setPreparing(true);
       try {
         let path = item.cachePath;
         if (!isReusableAudioCache(path)) {
@@ -122,6 +129,8 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
       } catch (err) {
         setCurrent(null);
         reportError(formatPlayError(item.title, formatSidecarGuidance(err) ?? err));
+      } finally {
+        setPreparing(false);
       }
     },
     [currentId, playing, setCurrent, setPlaying, setCachePath, reportError],
@@ -144,5 +153,5 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     setVolumeState(player.volume);
   }, []);
 
-  return { current, playing, currentTime, duration, paused, volume, lastError, toggle, pause, stop, seek, setVolume };
+  return { current, playing, currentTime, duration, paused, volume, lastError, preparing, toggle, pause, stop, seek, setVolume };
 }

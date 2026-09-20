@@ -1,7 +1,7 @@
 import { Button, Slider, Tooltip } from "antd";
 import { DeleteOutlined, PauseCircleFilled, PlayCircleFilled, SoundOutlined } from "@ant-design/icons";
 import { formatDuration } from "@/lib/format";
-import type { PlayerControls } from "@/hooks/usePlayer";
+import { PREPARING_HINT, type PlayerControls } from "@/hooks/usePlayer";
 
 export function PlayerBar({
   controls,
@@ -10,9 +10,18 @@ export function PlayerBar({
   controls: PlayerControls;
   onDelete: (id: string) => void;
 }) {
-  const { current, playing, currentTime, duration, volume, lastError, toggle, seek, setVolume } = controls;
+  const { current, playing, currentTime, duration, volume, lastError, preparing, toggle, seek, setVolume } = controls;
 
   const isPlaying = playing;
+  const status = preparing ? (
+    <span className="player-status" role="status" data-testid="player-preparing">
+      {PREPARING_HINT}
+    </span>
+  ) : lastError ? (
+    <span className="player-error" role="alert" data-testid="player-error" title={lastError}>
+      {lastError}
+    </span>
+  ) : null;
 
   return (
     <footer className="player-bar" data-testid="player-bar">
@@ -73,16 +82,10 @@ export function PlayerBar({
               style={{ width: 90 }}
             />
           </div>
-          {lastError ? (
-            <span className="player-error" role="alert" data-testid="player-error" title={lastError}>
-              {lastError}
-            </span>
-          ) : null}
+          {status}
         </>
-      ) : lastError ? (
-        <span className="player-error" role="alert" data-testid="player-error" title={lastError}>
-          {lastError}
-        </span>
+      ) : status ? (
+        status
       ) : (
         <span style={{ color: "var(--text-dim)", fontSize: 13 }}>未在播放</span>
       )}
