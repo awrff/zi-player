@@ -27,10 +27,27 @@ describe("classifyImportError", () => {
     expect(result.detail).not.toBe("解析失败，请检查链接后重试");
   });
 
-  it("maps JSON parse failures to Chinese parse copy", () => {
-    const result = classifyImportError(new Error("expected value at line 1 column 1"));
-    expect(result.reason).toBe("parse-failed");
-    expect(result.detail).toBe(IMPORT_ERROR_COPY.parseFailed);
+  it("maps JSON parse and extractor failures to Chinese parse copy", () => {
+    const json = classifyImportError(new Error("expected value at line 1 column 1"));
+    expect(json.reason).toBe("parse-failed");
+    expect(json.detail).toBe(IMPORT_ERROR_COPY.parseFailed);
+
+    const extract = classifyImportError(
+      new Error("ERROR: [BiliBili] BV1xx411c7mD: Unable to extract initial state"),
+    );
+    expect(extract.reason).toBe("parse-failed");
+    expect(extract.detail).toBe(IMPORT_ERROR_COPY.parseFailed);
+    expect(extract.detail).not.toMatch(/链接可能无效/);
+  });
+
+  it("maps 风控/403/412 to Chinese access copy, not invalid-link copy", () => {
+    const result = classifyImportError(
+      new Error("ERROR: [BiliBili] BV1xx411c7mD: Unable to download webpage: HTTP Error 412: Precondition Failed"),
+    );
+    expect(result.reason).toBe("access");
+    expect(result.detail).toBe(IMPORT_ERROR_COPY.access);
+    expect(result.detail).toMatch(/[\u4e00-\u9fff]/);
+    expect(result.detail).not.toMatch(/链接可能无效/);
   });
 
   it("keeps sidecar missing as resolve-failed with fetch-binaries guidance", () => {

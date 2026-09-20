@@ -28,6 +28,7 @@ export type ImportFailReason =
   | "duplicate"
   | "network"
   | "unavailable"
+  | "access"
   | "parse-failed"
   | "resolve-failed";
 
