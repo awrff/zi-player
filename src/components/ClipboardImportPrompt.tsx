@@ -28,7 +28,9 @@ export function ClipboardImportPrompt({ url, onClose }: ClipboardImportPromptPro
         duplicate: "这条视频已经在唱片架上了",
         "resolve-failed": "解析失败，请检查链接后重试",
       };
-      message.error(reasons[result.reason]);
+      message.error(
+        result.reason === "resolve-failed" && result.detail ? result.detail : reasons[result.reason],
+      );
     }
     onClose();
   };

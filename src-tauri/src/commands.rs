@@ -23,22 +23,79 @@ pub(crate) fn sidecar_missing_hint(name: &str) -> String {
     )
 }
 
+/// Spawn/open failures that mean the sidecar binary is absent, not a video error.
+pub(crate) fn looks_like_sidecar_missing(err: &str) -> bool {
+    let e = err.to_ascii_lowercase();
+    e.contains("no such file")
+        || e.contains("os error 2")
+        || e.contains("the system cannot find")
+        || e.contains("program not found")
+        || e.contains("sidecar not found")
+        || e.contains("cannot find the path")
+        || e.contains("cannot find the file")
+}
+
+fn sidecar_io_error(name: &str, err: &str) -> String {
+    if looks_like_sidecar_missing(err) {
+        sidecar_missing_hint(name)
+    } else {
+        format!("无法执行 sidecar `{name}`")
+    }
+}
+
 fn open_sidecar(app: &AppHandle, name: &str) -> Result<Command, String> {
     app.shell()
         .sidecar(name)
-        .map_err(|e| format!("{}（{e}）", sidecar_missing_hint(name)))
+        .map_err(|_| sidecar_missing_hint(name))
+}
+
+/// Cheap `--version` / `-version` probe so missing binaries fail before download.
+async fn ensure_sidecar(app: &AppHandle, name: &str) -> Result<(), String> {
+    let cmd = open_sidecar(app, name)?;
+    let probe: [&str; 1] = if name == "ffmpeg" {
+        ["-version"]
+    } else {
+        ["--version"]
+    };
+    cmd.args(probe)
+        .output()
+        .await
+        .map(|_| ())
+        .map_err(|e| sidecar_io_error(name, &e.to_string()))
+}
+
+async fn ensure_sidecars(app: &AppHandle, names: &[&str]) -> Result<(), String> {
+    for name in names {
+        ensure_sidecar(app, name).await?;
+    }
+    Ok(())
+}
+
+/// Names of sidecars that cannot be launched (`yt-dlp` / `ffmpeg`).
+#[tauri::command]
+pub async fn check_sidecars(app: AppHandle) -> Result<Vec<String>, String> {
+    let mut missing = Vec::new();
+    for name in ["yt-dlp", "ffmpeg"] {
+        if let Err(e) = ensure_sidecar(&app, name).await {
+            if e.contains("fetch-binaries.sh") || e.contains("无法启动 sidecar") {
+                missing.push(name.to_string());
+            }
+        }
+    }
+    Ok(missing)
 }
 
 /// Resolve metadata for a Bilibili URL via `yt-dlp -J`.
 #[tauri::command]
 pub async fn resolve_video(app: AppHandle, url: String) -> Result<VideoMeta, String> {
+    ensure_sidecars(&app, &["yt-dlp"]).await?;
     let sidecar = open_sidecar(&app, "yt-dlp")?;
 
     let output = sidecar
         .args(["-J", "--no-playlist", "--skip-download", "--no-warnings", url.as_str()])
         .output()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| sidecar_io_error("yt-dlp", &e.to_string()))?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
@@ -65,6 +122,13 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
         return Ok(playable.to_string_lossy().to_string());
     }
 
+    // Fail before download/transcode so a missing sidecar is not an OS error.
+    if find_existing(&cache_dir, &id).is_some() {
+        ensure_sidecars(&app, &["ffmpeg"]).await?;
+    } else {
+        ensure_sidecars(&app, &["yt-dlp", "ffmpeg"]).await?;
+    }
+
     // Reuse a raw download if present, otherwise fetch it with yt-dlp.
     let raw = if let Some(existing) = find_existing(&cache_dir, &id) {
         existing
@@ -85,7 +149,7 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
             ])
             .output()
             .await
-            .map_err(|e| download_error(&e.to_string()))?;
+            .map_err(|e| download_error(&sidecar_io_error("yt-dlp", &e.to_string())))?;
 
         if !output.status.success() {
             return Err(download_error(&String::from_utf8_lossy(&output.stderr)));
@@ -135,7 +199,7 @@ pub async fn fetch_cover(app: AppHandle, id: String, url: String) -> Result<Stri
         ])
         .output()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| sidecar_io_error("yt-dlp", &e.to_string()))?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
@@ -251,6 +315,9 @@ fn playable_target(dir: &Path, id: &str) -> PathBuf {
 /// User-facing Chinese error when yt-dlp cannot fetch the audio stream.
 fn download_error(detail: &str) -> String {
     let detail = detail.trim();
+    if detail.contains("下载音频失败") || detail.contains("fetch-binaries.sh") {
+        return detail.to_string();
+    }
     if detail.is_empty() {
         "下载音频失败：yt-dlp 未返回原因".to_string()
     } else {
@@ -261,7 +328,7 @@ fn download_error(detail: &str) -> String {
 /// User-facing Chinese error when Vorbis transcode cannot complete.
 fn transcode_error(detail: &str) -> String {
     let detail = detail.trim();
-    if detail.contains("音频转码失败") {
+    if detail.contains("音频转码失败") || detail.contains("fetch-binaries.sh") {
         return detail.to_string();
     }
     format!("音频转码失败：{detail}。未生成可播放的 OGG，Linux 上无法解码 AAC。")
@@ -300,7 +367,7 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
         .await
         .map_err(|e| {
             let _ = std::fs::remove_file(&tmp);
-            format!("ffmpeg sidecar 执行失败（{e}）")
+            sidecar_io_error("ffmpeg", &e.to_string())
         })?;
 
     if !output.status.success() || !tmp.is_file() {
@@ -351,12 +418,30 @@ mod tests {
     }
 
     #[test]
+    fn missing_sidecar_io_error_is_chinese_without_native_dump() {
+        assert!(looks_like_sidecar_missing("No such file or directory (os error 2)"));
+        assert!(looks_like_sidecar_missing("program not found"));
+        assert!(!looks_like_sidecar_missing("HTTP Error 403: Forbidden"));
+        let msg = sidecar_io_error("yt-dlp", "Error: No such file or directory (os error 2)");
+        assert!(msg.contains("fetch-binaries.sh"));
+        assert!(msg.contains("yt-dlp"));
+        assert!(!msg.contains("os error"));
+        assert!(!msg.contains("No such file"));
+    }
+
+    #[test]
     fn transcode_error_is_chinese_and_does_not_pretend_success() {
         let msg = transcode_error("无法启动 sidecar `ffmpeg`");
         assert!(msg.contains("转码失败"));
         assert!(msg.contains("ffmpeg"));
         assert!(msg.contains("OGG") || msg.contains("ogg"));
         assert!(!msg.contains("回退"));
+    }
+
+    #[test]
+    fn transcode_error_passes_through_fetch_binaries_hint() {
+        let hint = sidecar_missing_hint("ffmpeg");
+        assert_eq!(transcode_error(&hint), hint);
     }
 
     #[test]
