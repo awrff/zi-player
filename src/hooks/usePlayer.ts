@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { native } from "@/lib/native";
 import { player } from "@/lib/player";
 import { useVideoStore } from "@/store/videoStore";
@@ -11,11 +11,41 @@ export interface PlayerControls {
   duration: number;
   paused: boolean;
   volume: number;
+  /** Last playback/download/decode error, in Chinese; null when none. */
+  lastError: string | null;
   toggle: (item: VideoItem) => Promise<void>;
   pause: () => void;
   stop: () => void;
   seek: (seconds: number) => void;
   setVolume: (value: number) => void;
+}
+
+/** Flatten Tauri / Error / string rejections into the message the UI shows. */
+export function hostErrorText(err: unknown): string {
+  if (typeof err === "string") return err;
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === "object" && "message" in err) {
+    const message = (err as { message: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return String(err);
+}
+
+export function formatPlayError(title: string, err: unknown): string {
+  return `无法播放「${title}」：${hostErrorText(err)}`;
+}
+
+export function formatDecodeError(code: number | null, message: string): string {
+  const detail = code != null ? `（错误码 ${code}${message ? `：${message}` : ""}）` : "";
+  return `音频无法解码${detail}，请确认已打包 ffmpeg 或安装系统编解码器`;
+}
+
+/** Local OGG, or a mock/e2e `data:audio/…` fixture. Stale AAC / asset URLs are not reusable. */
+export function isReusableAudioCache(path: string | undefined): boolean {
+  if (!path) return false;
+  if (/^(asset|blob|https?):/i.test(path)) return false;
+  if (/^data:audio\//i.test(path)) return true;
+  return /\.ogg$/i.test(path);
 }
 
 export function usePlayer(onError?: (msg: string) => void): PlayerControls {
@@ -32,6 +62,18 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const [audioDuration, setAudioDuration] = useState(0);
   const [paused, setPaused] = useState(true);
   const [volume, setVolumeState] = useState(1);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const reportedRef = useRef(false);
+
+  const reportError = useCallback(
+    (msg: string) => {
+      if (reportedRef.current) return;
+      reportedRef.current = true;
+      setLastError(msg);
+      onError?.(msg);
+    },
+    [onError],
+  );
 
   useEffect(() => {
     const unsub = player.subscribe(() => {
@@ -41,15 +83,15 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     });
     const unsubEnded = player.onEnded(() => setPlaying(false));
     const unsubError = player.onError((code, message) => {
-      const detail = code != null ? `（错误码 ${code}${message ? `：${message}` : ""}）` : "";
-      onError?.(`音频无法解码${detail}，请确认已打包 ffmpeg 或安装系统编解码器`);
+      setPlaying(false);
+      reportError(formatDecodeError(code, message));
     });
     return () => {
       unsub();
       unsubEnded();
       unsubError();
     };
-  }, [setPlaying, onError]);
+  }, [setPlaying, reportError]);
 
   // Bilibili DASH audio has no duration metadata, so HTMLAudioElement.duration is
   // Infinity (coerced to 0 by AudioPlayer). Use the duration resolved from yt-dlp
@@ -65,21 +107,23 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
         return;
       }
       setCurrent(item.id);
+      reportedRef.current = false;
+      setLastError(null);
       try {
         let path = item.cachePath;
-        // Migrate stale entries (asset:// blob: http:) persisted before the HTTP-URL switch.
-        if (!path || /^(asset|blob|https?):/.test(path)) {
+        if (!isReusableAudioCache(path)) {
           path = await native.downloadAudio(item.id, item.url);
           setCachePath(item.id, path);
         }
+        if (!path) throw new Error("音频缓存路径为空");
         const src = await native.audioUrl(path);
         await player.play(src);
       } catch (err) {
         setCurrent(null);
-        onError?.(`无法播放「${item.title}」：${String(err)}`);
+        reportError(formatPlayError(item.title, err));
       }
     },
-    [currentId, playing, setCurrent, setPlaying, setCachePath, onError],
+    [currentId, playing, setCurrent, setPlaying, setCachePath, reportError],
   );
 
   const pause = useCallback(() => {
@@ -99,5 +143,5 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     setVolumeState(player.volume);
   }, []);
 
-  return { current, playing, currentTime, duration, paused, volume, toggle, pause, stop, seek, setVolume };
+  return { current, playing, currentTime, duration, paused, volume, lastError, toggle, pause, stop, seek, setVolume };
 }

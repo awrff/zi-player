@@ -10,7 +10,7 @@ const sixItems: SeedItem[] = [
     uploader: "Dave",
     duration: 111,
     cover: sampleItems[0].cover,
-    cachePath: "data:audio/mpeg;base64,",
+    cachePath: sampleItems[0].cachePath,
   },
   {
     id: "BV1xx411c7mH",
@@ -19,7 +19,7 @@ const sixItems: SeedItem[] = [
     uploader: "Eve",
     duration: 222,
     cover: sampleItems[1].cover,
-    cachePath: "data:audio/mpeg;base64,",
+    cachePath: sampleItems[0].cachePath,
   },
   {
     id: "BV1xx411c7mI",
@@ -28,7 +28,7 @@ const sixItems: SeedItem[] = [
     uploader: "Frank",
     duration: 333,
     cover: sampleItems[2].cover,
-    cachePath: "data:audio/mpeg;base64,",
+    cachePath: sampleItems[0].cachePath,
   },
 ];
 
