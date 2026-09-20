@@ -93,8 +93,9 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
       setLastError(null);
       try {
         let path = item.cachePath;
-        // Migrate stale entries (asset:// blob: http:) persisted before the HTTP-URL switch.
-        if (!path || /^(asset|blob|https?):/.test(path)) {
+        // Re-download unless we already have a local OGG. asset/blob/http leftovers
+        // and raw AAC/m4a from the old silent fallback are not playable on Linux.
+        if (!path || /^(asset|blob|https?):/.test(path) || !/\.ogg$/i.test(path)) {
           path = await native.downloadAudio(item.id, item.url);
           setCachePath(item.id, path);
         }

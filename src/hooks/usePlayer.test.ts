@@ -77,6 +77,24 @@ describe("usePlayer playback errors", () => {
     expect(result.current.lastError).toBe(msg);
   });
 
+  it("re-fetches when cachePath is a stale AAC file instead of OGG", async () => {
+    h.downloadAudio.mockResolvedValue("/data/audio/BV1xx411c7mD.ogg");
+    h.audioUrl.mockResolvedValue("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
+    h.play.mockResolvedValue(undefined);
+    const onError = vi.fn();
+    const { result } = renderHook(() => usePlayer(onError));
+    const stale = { ...item, cachePath: "/data/audio/BV1xx411c7mD.m4a" };
+
+    await act(async () => {
+      await result.current.toggle(stale);
+    });
+
+    expect(h.downloadAudio).toHaveBeenCalledWith(stale.id, stale.url);
+    expect(h.play).toHaveBeenCalledWith("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
+    expect(onError).not.toHaveBeenCalled();
+    expect(result.current.lastError).toBeNull();
+  });
+
   it("surfaces a Chinese error when HTMLAudioElement play() rejects", async () => {
     h.downloadAudio.mockResolvedValue("/data/audio/BV1xx411c7mD.ogg");
     h.audioUrl.mockResolvedValue("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
