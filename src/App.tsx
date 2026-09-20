@@ -19,6 +19,7 @@ function BoardApp() {
   const playing = useVideoStore((s) => s.playing);
   const removeVideo = useVideoStore((s) => s.removeVideo);
   const renameVideo = useVideoStore((s) => s.renameVideo);
+  const reorder = useVideoStore((s) => s.reorder);
   const clearAll = useVideoStore((s) => s.clearAll);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -74,6 +75,16 @@ function BoardApp() {
         onToggle={(item) => void controls.toggle(item)}
         onDelete={(item) => removeVideo(item.id)}
         onRename={renameVideo}
+        onReorder={(from, to) => {
+          const fromId = visibleItems[from]?.id;
+          const toId = visibleItems[to]?.id;
+          if (!fromId || !toId) return;
+          const all = useVideoStore.getState().items;
+          reorder(
+            all.findIndex((item) => item.id === fromId),
+            all.findIndex((item) => item.id === toId),
+          );
+        }}
       />
 
       <PlayerBar controls={controls} onDelete={removeVideo} />

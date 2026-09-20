@@ -79,7 +79,7 @@ export function Turntable({ item, playing, onToggle, onDelete, onRename }: Turnt
       </div>
 
       <div className="turntable-cover-wrap">
-        <img className="turntable-cover" src={item.cover} alt={item.title} />
+        <img className="turntable-cover" src={item.cover} alt={item.title} draggable={false} />
       </div>
 
       <div className="turntable-deck">
