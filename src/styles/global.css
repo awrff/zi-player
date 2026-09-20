@@ -368,6 +368,15 @@ body {
   overflow: hidden;
 }
 
+.player-status {
+  color: var(--ub-orange);
+  font-size: 12px;
+  flex: 1 1 160px;
+  min-width: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 /* ---------- Reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
