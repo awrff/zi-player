@@ -87,6 +87,26 @@ describe("usePlayer playback errors", () => {
     expect(result.current.lastError).toBe(msg);
   });
 
+  it("replaces opaque missing-sidecar native errors with fetch-binaries guidance", async () => {
+    h.downloadAudio.mockRejectedValue("Error: program not found (os error 2)");
+    const onError = vi.fn();
+    const { result } = renderHook(() => usePlayer(onError));
+
+    await act(async () => {
+      await result.current.toggle(item);
+    });
+
+    expect(h.play).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+    const msg = onError.mock.calls[0][0] as string;
+    expect(msg).toMatch(/无法播放/);
+    expect(msg).toMatch(/测试曲目/);
+    expect(msg).toMatch(/fetch-binaries/);
+    expect(msg).toMatch(/[\u4e00-\u9fff]/);
+    expect(msg).not.toMatch(/os error|program not found/i);
+    expect(result.current.lastError).toBe(msg);
+  });
+
   it("re-fetches when cachePath is a stale AAC file instead of OGG", async () => {
     h.downloadAudio.mockResolvedValue("/data/audio/BV1xx411c7mD.ogg");
     h.audioUrl.mockResolvedValue("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");

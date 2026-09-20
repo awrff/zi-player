@@ -109,7 +109,7 @@ bash scripts/check-sidecars.sh            # 校验脚本路径、externalBin、A
 ### 缺文件时会发生什么
 
 - **构建期**：`src-tauri/build.rs` 会在 `tauri build` / `cargo test` 前检查当前 target 的两个 sidecar；找不到就 panic，并提示运行 `bash scripts/fetch-binaries.sh`。
-- **运行期**：yt-dlp / ffmpeg 失败都会返回中文错误，前端 Toast 与播放条会提示。**不再静默回退到原始 AAC**（Linux WebKitGTK 上通常无声、进度条不动）。请用 `--check` 确认 ffmpeg 已打包。
+- **运行期**：启动、导入或播放时若 sidecar 缺失，会弹出中文提示，引导运行 `bash scripts/fetch-binaries.sh`，而不是抛出原生/Tauri 英文错误。yt-dlp / ffmpeg 的其他失败仍返回中文错误。**不再静默回退到原始 AAC**（Linux WebKitGTK 上通常无声、进度条不动）。请用 `--check` 确认 ffmpeg 已打包。
 
 ## 常用命令
 

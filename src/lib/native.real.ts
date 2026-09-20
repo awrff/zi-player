@@ -26,6 +26,10 @@ export const realNative: Native = {
     return convertFileSrc(path);
   },
 
+  async checkSidecars(): Promise<string[]> {
+    return invoke<string[]>("check_sidecars");
+  },
+
   async readClipboard(): Promise<string> {
     try {
       return (await readText()) ?? "";
