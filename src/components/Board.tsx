@@ -84,7 +84,6 @@ export function Board({ items, playingId, playing, onToggle, onDelete, onRename,
                 aria-grabbed={dragFrom === index || undefined}
                 onDragStart={(e) => {
                   if (!onReorder) return;
-                  suppressClick.current = true;
                   dragFromRef.current = index;
                   setDragFrom(index);
                   if (e.dataTransfer) {
@@ -98,11 +97,17 @@ export function Board({ items, playingId, playing, onToggle, onDelete, onRename,
                   if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
                   if (dragOver !== index) setDragOver(index);
                 }}
+                onDragLeave={(e) => {
+                  const next = e.relatedTarget;
+                  if (next instanceof Node && e.currentTarget.contains(next)) return;
+                  setDragOver((current) => (current === index ? null : current));
+                }}
                 onDrop={(e) => {
                   e.preventDefault();
                   const from = dragFromRef.current;
                   if (onReorder && from !== null && from !== index) {
                     onReorder(from, index);
+                    suppressClick.current = true;
                   }
                   finishDrag();
                 }}

@@ -36,6 +36,29 @@ test("deletes a record", async ({ page }) => {
   await expect(page.getByTestId("board-empty")).toBeVisible();
 });
 
+test("reorders filtered records using store indices, not visible indices", async ({ page }) => {
+  await gotoBoard(page, [
+    { ...sampleItems[0], id: "A", title: "Alpha one" },
+    { ...sampleItems[1], id: "B", title: "Beta" },
+    { ...sampleItems[2], id: "C", title: "Alpha two" },
+  ]);
+
+  await page.getByLabel("search-input").fill("Alpha");
+  const slots = page.getByTestId("board-slot");
+  await expect(slots).toHaveCount(2);
+  await html5DragAndDrop(slots.nth(0), slots.nth(1));
+
+  await page.getByLabel("search-input").fill("");
+  const cards = page.getByTestId("turntable");
+  await expect(cards.nth(0)).toHaveAttribute("data-id", "B");
+  await expect(cards.nth(1)).toHaveAttribute("data-id", "C");
+  await expect(cards.nth(2)).toHaveAttribute("data-id", "A");
+
+  const stored = await page.evaluate(() => localStorage.getItem("bili-board"));
+  const persisted = JSON.parse(stored!) as { state: { items: { id: string }[] } };
+  expect(persisted.state.items.map((item) => item.id)).toEqual(["B", "C", "A"]);
+});
+
 test("reorders records by dragging one onto another and persists the order", async ({ page }) => {
   await gotoBoard(page, sampleItems);
 

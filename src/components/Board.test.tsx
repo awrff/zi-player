@@ -114,6 +114,9 @@ describe("Board", () => {
 
     expect(slots[0]).toHaveClass("is-dragging");
     expect(slots[2]).toHaveClass("is-drop-target");
+
+    fireEvent.dragLeave(slots[2]);
+    expect(slots[2]).not.toHaveClass("is-drop-target");
   });
 
   it("moves a focused card with Alt+Arrow keys", () => {
@@ -137,26 +140,35 @@ describe("Board", () => {
     expect(onReorder).toHaveBeenCalledWith(1, 0);
   });
 
-  it("does not toggle playback after a drag", () => {
-    const onToggle = vi.fn();
-    render(
-      <Board
-        items={makeItems(2)}
-        playingId={null}
-        playing={false}
-        onToggle={onToggle}
-        onDelete={() => {}}
-        onRename={() => {}}
-        onReorder={() => {}}
-      />,
-    );
+  it("does not toggle playback after a drag, then plays again", () => {
+    vi.useFakeTimers();
+    try {
+      const onToggle = vi.fn();
+      render(
+        <Board
+          items={makeItems(2)}
+          playingId={null}
+          playing={false}
+          onToggle={onToggle}
+          onDelete={() => {}}
+          onRename={() => {}}
+          onReorder={() => {}}
+        />,
+      );
 
-    const slots = screen.getAllByTestId("board-slot");
-    fireEvent.dragStart(slots[0]);
-    fireEvent.drop(slots[1]);
-    fireEvent.dragEnd(slots[0]);
-    fireEvent.click(screen.getAllByTestId("turntable")[0]);
+      const slots = screen.getAllByTestId("board-slot");
+      fireEvent.dragStart(slots[0]);
+      fireEvent.drop(slots[1]);
+      fireEvent.dragEnd(slots[0]);
+      fireEvent.click(screen.getAllByTestId("turntable")[0]);
 
-    expect(onToggle).not.toHaveBeenCalled();
+      expect(onToggle).not.toHaveBeenCalled();
+
+      vi.runAllTimers();
+      fireEvent.click(screen.getAllByTestId("turntable")[0]);
+      expect(onToggle).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -94,8 +94,18 @@ body {
   cursor: grab;
 }
 
-.board-slot:active {
+.board-slot .turntable {
+  cursor: grab;
+}
+
+.board-slot:active,
+.board-slot:active .turntable {
   cursor: grabbing;
+}
+
+.board-slot .turntable-actions,
+.board-slot .turntable-actions * {
+  cursor: pointer;
 }
 
 .board-slot.is-dragging {
