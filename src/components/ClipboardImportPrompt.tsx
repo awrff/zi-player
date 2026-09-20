@@ -22,6 +22,8 @@ export function ClipboardImportPrompt({ url, onClose }: ClipboardImportPromptPro
 
     if (result.ok) {
       message.success(`已从剪贴板导入「${result.item.title}」`);
+    } else if (result.reason === "duplicate") {
+      message.warning(importErrorMessage(result, "clipboard"));
     } else {
       message.error(importErrorMessage(result, "clipboard"));
     }

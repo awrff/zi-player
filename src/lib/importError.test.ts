@@ -79,3 +79,15 @@ describe("importErrorMessage", () => {
     expect(importErrorMessage({ ok: false, reason: "resolve-failed" })).toMatch(/[\u4e00-\u9fff]/);
   });
 });
+
+describe("duplicate import copy", () => {
+  it("tells the user the video is already on the board", () => {
+    expect(importErrorMessage({ ok: false, reason: "duplicate" })).toBe("该视频已在看板上，无需重复添加");
+  });
+
+  it("uses the same board copy for clipboard imports", () => {
+    expect(importErrorMessage({ ok: false, reason: "duplicate" }, "clipboard")).toBe(
+      "该视频已在看板上，无需重复添加",
+    );
+  });
+});
