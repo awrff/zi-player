@@ -423,3 +423,15 @@ body {
     flex-basis: 100%;
   }
 }
+
+.board-empty-guide {
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+.board-empty-guide p {
+  margin: 0 0 0.35em;
+}
+.board-empty-guide p:first-child {
+  color: var(--text);
+  font-size: 15px;
+}

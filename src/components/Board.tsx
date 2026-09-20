@@ -54,7 +54,12 @@ export function Board({ items, playingId, playing, onToggle, onDelete, onRename,
           data-testid="board-empty"
           style={{ marginTop: 80 }}
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="唱片架是空的 —— 粘贴 B 站链接或点击右上角「添加」开始收藏"
+          description={
+            <div className="board-empty-guide" data-testid="board-empty-guide">
+              <p>唱片架还是空的</p>
+              <p>粘贴 B 站视频链接，或点击右上角「添加」把歌加进来</p>
+            </div>
+          }
         />
       ) : (
         <div
