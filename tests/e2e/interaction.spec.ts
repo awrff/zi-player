@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { gotoBoard, sampleItems } from "./helpers";
+import { gotoBoard, html5DragAndDrop, sampleItems } from "./helpers";
 
 test("adds a record through the add dialog", async ({ page }) => {
   await gotoBoard(page, []);
@@ -34,6 +34,50 @@ test("deletes a record", async ({ page }) => {
   await page.getByRole("button", { name: /删\s*除/ }).click();
 
   await expect(page.getByTestId("board-empty")).toBeVisible();
+});
+
+test("reorders filtered records using store indices, not visible indices", async ({ page }) => {
+  await gotoBoard(page, [
+    { ...sampleItems[0], id: "A", title: "Alpha one" },
+    { ...sampleItems[1], id: "B", title: "Beta" },
+    { ...sampleItems[2], id: "C", title: "Alpha two" },
+  ]);
+
+  await page.getByLabel("search-input").fill("Alpha");
+  const slots = page.getByTestId("board-slot");
+  await expect(slots).toHaveCount(2);
+  await html5DragAndDrop(slots.nth(0), slots.nth(1));
+
+  await page.getByLabel("search-input").fill("");
+  const cards = page.getByTestId("turntable");
+  await expect(cards.nth(0)).toHaveAttribute("data-id", "B");
+  await expect(cards.nth(1)).toHaveAttribute("data-id", "C");
+  await expect(cards.nth(2)).toHaveAttribute("data-id", "A");
+
+  const stored = await page.evaluate(() => localStorage.getItem("bili-board"));
+  const persisted = JSON.parse(stored!) as { state: { items: { id: string }[] } };
+  expect(persisted.state.items.map((item) => item.id)).toEqual(["B", "C", "A"]);
+});
+
+test("reorders records by dragging one onto another and persists the order", async ({ page }) => {
+  await gotoBoard(page, sampleItems);
+
+  const slots = page.getByTestId("board-slot");
+  await html5DragAndDrop(slots.nth(0), slots.nth(2));
+
+  const cards = page.getByTestId("turntable");
+  await expect(cards.nth(0)).toHaveAttribute("data-id", sampleItems[1].id);
+  await expect(cards.nth(1)).toHaveAttribute("data-id", sampleItems[2].id);
+  await expect(cards.nth(2)).toHaveAttribute("data-id", sampleItems[0].id);
+
+  const stored = await page.evaluate(() => localStorage.getItem("bili-board"));
+  expect(stored).toBeTruthy();
+  const persisted = JSON.parse(stored!) as { state: { items: { id: string }[] } };
+  expect(persisted.state.items.map((item) => item.id)).toEqual([
+    sampleItems[1].id,
+    sampleItems[2].id,
+    sampleItems[0].id,
+  ]);
 });
 
 test("renames a record", async ({ page }) => {

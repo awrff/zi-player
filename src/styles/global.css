@@ -90,6 +90,38 @@ body {
   gap: 18px;
 }
 
+.board-slot {
+  cursor: grab;
+}
+
+.board-slot .turntable {
+  cursor: grab;
+}
+
+.board-slot:active,
+.board-slot:active .turntable {
+  cursor: grabbing;
+}
+
+.board-slot .turntable-actions,
+.board-slot .turntable-actions * {
+  cursor: pointer;
+}
+
+.board-slot.is-dragging {
+  opacity: 0.42;
+}
+
+.board-slot.is-dragging .turntable {
+  transform: none;
+}
+
+.board-slot.is-drop-target .turntable {
+  border-color: var(--ub-orange);
+  box-shadow: 0 0 0 1px rgba(233, 84, 32, 0.45), var(--shadow);
+  background: var(--surface-strong);
+}
+
 /* ---------- Turntable card ---------- */
 
 .turntable {
@@ -134,6 +166,7 @@ body {
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
   display: block;
   background: #222;
+  -webkit-user-drag: none;
 }
 
 .turntable-deck {
