@@ -11,6 +11,7 @@
 #   bash scripts/fetch-binaries.sh --all      # 下载全部 4 个平台（跨平台打包用）
 #   bash scripts/fetch-binaries.sh --check    # 检查当前平台二进制是否已就位
 #   bash scripts/fetch-binaries.sh --dump-layout  # 打印全部平台的期望相对路径
+#   bash scripts/fetch-binaries.sh --self-test    # 校验空文件 / HTML 错误页检测
 #   bash scripts/fetch-binaries.sh --help     # 帮助
 #
 # 依赖：curl（或 wget）；Linux 还需要 tar + xz；Windows/macOS 包需要 unzip。
@@ -44,17 +45,15 @@ require() {
   command -v "$1" >/dev/null 2>&1 || die "缺少依赖：$1"
 }
 
-# 拒绝空文件和常见的 HTML/文本错误页，避免静默装进一个不能跑的 sidecar。
+# 拒绝空文件和以 '<' 开头的 HTML/XML 错误页。用 od 读魔数，避免把二进制 NUL 读进 bash。
 assert_payload() {
   local path="$1" kind="${2:-binary}"
   [ -s "$path" ] || die "下载结果为空：$path"
-  local head
-  head="$(head -c 64 "$path" 2>/dev/null || true)"
-  case "$head" in
-    '<!DOCTYPE'*|'<!doctype'*|'<html'*|'<HTML'*|'Not Found'*|'404'*)
-      die "下载到的不是 $kind（像是错误页）：$path"
-      ;;
-  esac
+  local first
+  first="$(od -An -tx1 -N1 "$path" | tr -d ' \n')"
+  if [ "$first" = "3c" ]; then
+    die "下载到的不是 $kind（像是 HTML 错误页）：$path"
+  fi
 }
 
 platform_meta() {
@@ -189,7 +188,7 @@ dump_layout() {
 }
 
 usage() {
-  sed -n '2,16p' "$0"
+  sed -n '2,17p' "$0"
 }
 
 main() {
@@ -204,6 +203,24 @@ main() {
       ;;
     --dump-layout)
       dump_layout
+      exit 0
+      ;;
+    --self-test)
+      local work
+      work="$(mktemp -d)"
+      printf '<!DOCTYPE html>' > "$work/html"
+      printf 'PK\x03\x04' > "$work/ok"
+      : > "$work/empty"
+      assert_payload "$work/ok" "zip"
+      # die() 会 exit，必须放进子 shell 才能断言「应当失败」。
+      if (assert_payload "$work/empty" "x") 2>/dev/null; then
+        die "self-test: 空文件应当被拒绝"
+      fi
+      if (assert_payload "$work/html" "x") 2>/dev/null; then
+        die "self-test: HTML 错误页应当被拒绝"
+      fi
+      rm -rf "$work"
+      info "self-test 通过。"
       exit 0
       ;;
     --check)

@@ -30,6 +30,9 @@ if "$FETCH" --not-a-real-flag >/dev/null 2>&1; then
 fi
 pass "未知参数会失败"
 
+"$FETCH" --self-test >/dev/null
+pass "下载结果校验会拒绝空文件和 HTML"
+
 # --- layout vs externalBin ---
 mapfile -t layout < <("$FETCH" --dump-layout)
 [ "${#layout[@]}" -ge 8 ] || fail "--dump-layout 条目过少：${#layout[@]}"
@@ -85,6 +88,7 @@ grep -q 'binaries/ffmpeg/ffmpeg-' "$README" || fail "README 未写嵌套 ffmpeg 
 grep -q 'scripts/fetch-binaries.sh --all' "$README" || fail "README 未写 --all 用法"
 grep -q 'webkit2gtk-4.1' "$README" || fail "README 未写 Linux webkit2gtk-4.1 依赖"
 grep -q 'Node.js 22' "$README" || fail "README 未写 Node.js 22+"
+grep -q '1.85' "$README" || fail "README 未写 Rust 1.85+"
 # 旧的扁平路径不应再作为推荐放置位置
 if grep -nE 'src-tauri/binaries/yt-dlp-x86_64|src-tauri/binaries/ffmpeg-x86_64' "$README" >/dev/null; then
   fail "README 仍在教扁平 sidecar 路径（应改为 binaries/<name>/<name>-<triple>）"

@@ -46,9 +46,10 @@ tests/e2e/      Playwright 集成测试
 精简的 CI / agent 镜像通常缺这些包，**完整桌面构建必须在装好依赖的开发机上跑**。
 
 1. **Node.js 22+** 与 npm。
-2. **Rust 工具链**（`src-tauri` 为 edition 2021）：
-   - 用 [rustup](https://www.rust-lang.org/learn/get-started#installing-rust) 安装 **stable**。
-   - 本仓库锁定 `rust-version = "1.77.2"`（Tauri 2.11 / `tauri-plugin-shell` 的 MSRV）。发行版自带的旧 `rustc` 往往不够，请 `rustup update stable`。
+2. **Rust 工具链**：
+   - 用 [rustup](https://www.rust-lang.org/learn/get-started#installing-rust) 安装 **stable**，需要 **Rust 1.85+**（edition 2024）。
+   - `src-tauri` 自身是 edition 2021，但 `Cargo.lock` 里已有需要 edition 2024 的依赖（例如 `indexmap` 2.14）。**rustc 1.83 会直接解析失败**。
+   - `Cargo.toml` 的 `rust-version = "1.85"` 会在更旧的工具链上尽早报错。发行版自带的 `rustc` 通常不够，请 `rustup update stable`。
    - Windows 请使用 **MSVC** 工具链（`rustup default stable-msvc`），不要用 gnu。
 3. **系统 WebView / 编译依赖**（只在编译或运行桌面壳时需要）：
    - **Linux**：Tauri 2 需要 **webkit2gtk 4.1**（不是 4.0）。Debian / Ubuntu：
