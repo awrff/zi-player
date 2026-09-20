@@ -23,5 +23,8 @@ describe("formatSidecarGuidance", () => {
   it("leaves unrelated host errors alone so import/play can keep their own copy", () => {
     expect(formatSidecarGuidance("HTTP Error 403: Forbidden")).toBeNull();
     expect(formatSidecarGuidance("音频转码失败：libvorbis 参数无效")).toBeNull();
+    expect(
+      formatSidecarGuidance("音频转码失败：No such file or directory。未生成可播放的 OGG"),
+    ).toBeNull();
   });
 });

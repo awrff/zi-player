@@ -315,7 +315,7 @@ fn playable_target(dir: &Path, id: &str) -> PathBuf {
 /// User-facing Chinese error when yt-dlp cannot fetch the audio stream.
 fn download_error(detail: &str) -> String {
     let detail = detail.trim();
-    if detail.contains("fetch-binaries.sh") || detail.contains("无法启动 sidecar") {
+    if detail.contains("下载音频失败") || detail.contains("fetch-binaries.sh") {
         return detail.to_string();
     }
     if detail.is_empty() {
@@ -328,10 +328,7 @@ fn download_error(detail: &str) -> String {
 /// User-facing Chinese error when Vorbis transcode cannot complete.
 fn transcode_error(detail: &str) -> String {
     let detail = detail.trim();
-    if detail.contains("音频转码失败")
-        || detail.contains("fetch-binaries.sh")
-        || detail.contains("无法启动 sidecar")
-    {
+    if detail.contains("音频转码失败") || detail.contains("fetch-binaries.sh") {
         return detail.to_string();
     }
     format!("音频转码失败：{detail}。未生成可播放的 OGG，Linux 上无法解码 AAC。")
@@ -439,6 +436,12 @@ mod tests {
         assert!(msg.contains("ffmpeg"));
         assert!(msg.contains("OGG") || msg.contains("ogg"));
         assert!(!msg.contains("回退"));
+    }
+
+    #[test]
+    fn transcode_error_passes_through_fetch_binaries_hint() {
+        let hint = sidecar_missing_hint("ffmpeg");
+        assert_eq!(transcode_error(&hint), hint);
     }
 
     #[test]

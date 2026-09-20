@@ -27,8 +27,13 @@ function stripOpaqueSuffix(text: string): string {
  */
 export function formatSidecarGuidance(err: unknown): string | null {
   const text = errorText(err);
-  if (!MISSING_SIDECAR_RE.test(text)) return null;
   const stripped = stripOpaqueSuffix(text);
+  // Already-Chinese download/transcode copy is not a missing sidecar (ffmpeg may
+  // mention "No such file" for a bad input). Only rewrite sidecar/spawn text.
+  if (/[\u4e00-\u9fff]/.test(stripped) && !/无法启动 sidecar|fetch-binaries/.test(stripped)) {
+    return null;
+  }
+  if (!MISSING_SIDECAR_RE.test(text)) return null;
   if (/[\u4e00-\u9fff]/.test(stripped) && stripped.includes("fetch-binaries")) {
     return stripped;
   }
