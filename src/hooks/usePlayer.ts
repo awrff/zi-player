@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { native } from "@/lib/native";
 import { player } from "@/lib/player";
 import { useVideoStore } from "@/store/videoStore";
@@ -40,6 +40,14 @@ export function formatDecodeError(code: number | null, message: string): string 
   return `音频无法解码${detail}，请确认已打包 ffmpeg 或安装系统编解码器`;
 }
 
+/** Local OGG, or a mock/e2e `data:audio/…` fixture. Stale AAC / asset URLs are not reusable. */
+export function isReusableAudioCache(path: string | undefined): boolean {
+  if (!path) return false;
+  if (/^(asset|blob|https?):/i.test(path)) return false;
+  if (/^data:audio\//i.test(path)) return true;
+  return /\.ogg$/i.test(path);
+}
+
 export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const items = useVideoStore((s) => s.items);
   const currentId = useVideoStore((s) => s.currentId);
@@ -55,6 +63,17 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const [paused, setPaused] = useState(true);
   const [volume, setVolumeState] = useState(1);
   const [lastError, setLastError] = useState<string | null>(null);
+  const reportedRef = useRef(false);
+
+  const reportError = useCallback(
+    (msg: string) => {
+      if (reportedRef.current) return;
+      reportedRef.current = true;
+      setLastError(msg);
+      onError?.(msg);
+    },
+    [onError],
+  );
 
   useEffect(() => {
     const unsub = player.subscribe(() => {
@@ -64,17 +83,15 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     });
     const unsubEnded = player.onEnded(() => setPlaying(false));
     const unsubError = player.onError((code, message) => {
-      const msg = formatDecodeError(code, message);
-      setLastError(msg);
       setPlaying(false);
-      onError?.(msg);
+      reportError(formatDecodeError(code, message));
     });
     return () => {
       unsub();
       unsubEnded();
       unsubError();
     };
-  }, [setPlaying, onError]);
+  }, [setPlaying, reportError]);
 
   // Bilibili DASH audio has no duration metadata, so HTMLAudioElement.duration is
   // Infinity (coerced to 0 by AudioPlayer). Use the duration resolved from yt-dlp
@@ -90,25 +107,23 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
         return;
       }
       setCurrent(item.id);
+      reportedRef.current = false;
       setLastError(null);
       try {
         let path = item.cachePath;
-        // Re-download unless we already have a local OGG. asset/blob/http leftovers
-        // and raw AAC/m4a from the old silent fallback are not playable on Linux.
-        if (!path || /^(asset|blob|https?):/.test(path) || !/\.ogg$/i.test(path)) {
+        if (!isReusableAudioCache(path)) {
           path = await native.downloadAudio(item.id, item.url);
           setCachePath(item.id, path);
         }
+        if (!path) throw new Error("音频缓存路径为空");
         const src = await native.audioUrl(path);
         await player.play(src);
       } catch (err) {
         setCurrent(null);
-        const msg = formatPlayError(item.title, err);
-        setLastError(msg);
-        onError?.(msg);
+        reportError(formatPlayError(item.title, err));
       }
     },
-    [currentId, playing, setCurrent, setPlaying, setCachePath, onError],
+    [currentId, playing, setCurrent, setPlaying, setCachePath, reportError],
   );
 
   const pause = useCallback(() => {

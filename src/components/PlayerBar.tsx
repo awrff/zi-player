@@ -74,13 +74,13 @@ export function PlayerBar({
             />
           </div>
           {lastError ? (
-            <span className="player-error" role="alert" data-testid="player-error">
+            <span className="player-error" role="alert" data-testid="player-error" title={lastError}>
               {lastError}
             </span>
           ) : null}
         </>
       ) : lastError ? (
-        <span className="player-error" role="alert" data-testid="player-error">
+        <span className="player-error" role="alert" data-testid="player-error" title={lastError}>
           {lastError}
         </span>
       ) : (

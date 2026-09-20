@@ -1,6 +1,7 @@
 import type { Native } from "./native";
 import type { VideoMeta } from "@/types";
 import { extractBiliId } from "./parser";
+import { silentWavDataUri } from "./silentWav";
 
 /** Control surface exposed to Playwright via `window.__nativeMock`. */
 export interface NativeMockControls {
@@ -86,9 +87,9 @@ export const mockNative: Native = {
     return fixture;
   },
 
-  async downloadAudio(id: string): Promise<string> {
+  async downloadAudio(_id: string): Promise<string> {
     await new Promise((r) => setTimeout(r, 30));
-    return `mock://audio/${encodeURIComponent(id)}.m4a`;
+    return silentWavDataUri();
   },
 
   async audioUrl(path: string): Promise<string> {

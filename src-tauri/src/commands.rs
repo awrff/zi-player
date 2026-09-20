@@ -97,7 +97,9 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
     // Transcode to Vorbis (Ogg) so WebKitGTK can decode it with base GStreamer plugins.
     // Fail loudly when ffmpeg is missing or transcode fails — do not return raw AAC
     // (Linux WebKitGTK typically plays that as silence with a frozen progress bar).
-    let playable = finish_download(transcode_audio(&app, &raw, &cache_dir, &id).await, raw)?;
+    let playable = transcode_audio(&app, &raw, &cache_dir, &id)
+        .await
+        .map_err(|e| transcode_error(&e))?;
     Ok(playable.to_string_lossy().to_string())
 }
 
@@ -259,21 +261,14 @@ fn download_error(detail: &str) -> String {
 /// User-facing Chinese error when Vorbis transcode cannot complete.
 fn transcode_error(detail: &str) -> String {
     let detail = detail.trim();
-    format!(
-        "音频转码失败：{detail}。未生成可播放的 OGG，Linux 上无法解码 AAC。请运行 `bash scripts/fetch-binaries.sh` 后重新构建。"
-    )
-}
-
-/// After transcode: success keeps the OGG path; failure is a hard error.
-/// The raw AAC/m4a path is intentionally unused — returning it used to look
-/// like success on Linux while HTMLAudioElement decoded nothing.
-fn finish_download(transcoded: Result<PathBuf, String>, raw: PathBuf) -> Result<PathBuf, String> {
-    let _ = raw; // ponytail: no silent AAC fallback; fail so the UI can toast.
-    transcoded.map_err(|e| transcode_error(&e))
+    if detail.contains("音频转码失败") {
+        return detail.to_string();
+    }
+    format!("音频转码失败：{detail}。未生成可播放的 OGG，Linux 上无法解码 AAC。")
 }
 
 /// Transcode a raw audio file to Vorbis in Ogg (`.ogg`) using the bundled ffmpeg
-/// sidecar. Returns the transcoded path, or a short detail for `finish_download`.
+/// sidecar. Writes `{id}.ogg.tmp` then renames so a failed run cannot cache junk.
 async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str) -> Result<PathBuf, String> {
     let target = playable_target(cache_dir, id);
     if target.is_file() {
@@ -282,7 +277,11 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
 
     let sidecar = open_sidecar(app, "ffmpeg")?;
     let raw_str = raw.to_string_lossy().to_string();
-    let target_str = target.to_string_lossy().to_string();
+    // Write to a temp file then rename so a failed ffmpeg cannot leave a
+    // truncated `{id}.ogg` that the next click would treat as a cache hit.
+    let tmp = cache_dir.join(format!("{id}.ogg.tmp"));
+    let _ = std::fs::remove_file(&tmp);
+    let tmp_str = tmp.to_string_lossy().to_string();
 
     let output = sidecar
         .args([
@@ -295,13 +294,17 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
             "libvorbis",
             "-q:a",
             "5",
-            target_str.as_str(),
+            tmp_str.as_str(),
         ])
         .output()
         .await
-        .map_err(|e| format!("ffmpeg sidecar 执行失败（{e}）"))?;
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&tmp);
+            format!("ffmpeg sidecar 执行失败（{e}）")
+        })?;
 
-    if !output.status.success() || !target.is_file() {
+    if !output.status.success() || !tmp.is_file() {
+        let _ = std::fs::remove_file(&tmp);
         let stderr = String::from_utf8_lossy(&output.stderr);
         let detail = stderr.trim();
         return Err(if detail.is_empty() {
@@ -311,22 +314,17 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
         });
     }
 
+    if let Err(e) = std::fs::rename(&tmp, &target) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(format!("无法写入 OGG：{e}"));
+    }
+
     // Best-effort cleanup: drop the raw source to keep the cache lean.
     if raw.file_stem().and_then(|s| s.to_str()) == Some(id) {
         let _ = std::fs::remove_file(raw);
     }
 
     Ok(target)
-}
-
-/// The target path after container normalization (pure — does not touch disk).
-#[allow(dead_code)] // kept for the m4s→m4a unit test; runtime AAC fallback was removed
-fn normalized_path(path: &Path) -> PathBuf {
-    if path.extension().and_then(|e| e.to_str()) == Some("m4s") {
-        path.with_extension("m4a")
-    } else {
-        path.to_path_buf()
-    }
 }
 
 #[cfg(test)]
@@ -362,11 +360,11 @@ mod tests {
     }
 
     #[test]
-    fn transcode_miss_is_a_hard_error_not_aac_fallback() {
-        let raw = PathBuf::from("/cache/BV123.m4a");
-        let err = finish_download(Err("ffmpeg 缺失".into()), raw).unwrap_err();
-        assert!(err.contains("转码失败"));
-        assert!(err.contains("ffmpeg"));
+    fn transcode_error_does_not_double_wrap() {
+        let inner = transcode_error("ffmpeg 缺失");
+        let again = transcode_error(&inner);
+        assert_eq!(inner.matches("音频转码失败").count(), 1);
+        assert_eq!(again, inner);
     }
 
     #[test]
@@ -396,18 +394,6 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_m4s_to_m4a() {
-        assert_eq!(
-            normalized_path(Path::new("/tmp/a.m4s")).extension().and_then(|e| e.to_str()),
-            Some("m4a")
-        );
-        assert_eq!(
-            normalized_path(Path::new("/tmp/a.m4a")).extension().and_then(|e| e.to_str()),
-            Some("m4a")
-        );
-    }
-
-    #[test]
     fn playable_target_uses_ogg_extension() {
         let target = playable_target(Path::new("/cache"), "BV123");
         assert_eq!(target, PathBuf::from("/cache/BV123.ogg"));
@@ -416,6 +402,16 @@ mod tests {
     #[test]
     fn find_playable_returns_none_when_absent() {
         assert_eq!(find_playable(Path::new("/nonexistent-dir"), "BV123"), None);
+    }
+
+    #[test]
+    fn find_playable_ignores_partial_tmp() {
+        let dir = std::env::temp_dir().join("bilibili-board-ogg-tmp");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("BV123.ogg.tmp"), b"partial").unwrap();
+        assert_eq!(find_playable(&dir, "BV123"), None);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

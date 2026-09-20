@@ -38,7 +38,7 @@ vi.mock("@/lib/player", () => ({
   },
 }));
 
-import { usePlayer } from "./usePlayer";
+import { isReusableAudioCache, usePlayer } from "./usePlayer";
 
 const item: VideoItem = {
   id: "BV1xx411c7mD",
@@ -56,6 +56,16 @@ beforeEach(() => {
   h.play.mockReset();
   h.pause.mockReset();
   useVideoStore.setState({ items: [item], currentId: null, playing: false });
+});
+
+describe("isReusableAudioCache", () => {
+  it("accepts local OGG and mock data:audio, rejects AAC and stale protocols", () => {
+    expect(isReusableAudioCache("/data/audio/BV.ogg")).toBe(true);
+    expect(isReusableAudioCache("data:audio/wav;base64,xxx")).toBe(true);
+    expect(isReusableAudioCache("/data/audio/BV.m4a")).toBe(false);
+    expect(isReusableAudioCache("asset://localhost/audio/BV.ogg")).toBe(false);
+    expect(isReusableAudioCache(undefined)).toBe(false);
+  });
 });
 
 describe("usePlayer playback errors", () => {
@@ -93,6 +103,22 @@ describe("usePlayer playback errors", () => {
     expect(h.play).toHaveBeenCalledWith("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
     expect(onError).not.toHaveBeenCalled();
     expect(result.current.lastError).toBeNull();
+  });
+
+  it("reuses a data:audio cachePath used by mock/e2e", async () => {
+    h.audioUrl.mockImplementation(async (path: string) => path);
+    h.play.mockResolvedValue(undefined);
+    const onError = vi.fn();
+    const { result } = renderHook(() => usePlayer(onError));
+    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
+
+    await act(async () => {
+      await result.current.toggle(cached);
+    });
+
+    expect(h.downloadAudio).not.toHaveBeenCalled();
+    expect(h.play).toHaveBeenCalledWith("data:audio/wav;base64,xxx");
+    expect(onError).not.toHaveBeenCalled();
   });
 
   it("surfaces a Chinese error when HTMLAudioElement play() rejects", async () => {

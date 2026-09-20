@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import type { VideoItem } from "../../src/types";
+import { silentWavDataUri } from "../../src/lib/silentWav";
 
 export interface SeedItem {
   id: string;
@@ -43,6 +44,9 @@ export async function html5DragAndDrop(
   await source.dispatchEvent("dragend");
 }
 
+/** Long enough that `ended` does not fire before the spinning assertion. */
+export const silentWav = silentWavDataUri();
+
 export const sampleItems: SeedItem[] = [
   {
     id: "BV1xx411c7mD",
@@ -51,7 +55,7 @@ export const sampleItems: SeedItem[] = [
     uploader: "Alice",
     duration: 180,
     cover: "data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><rect width='320' height='320' fill='%23e95420'/></svg>",
-    cachePath: "data:audio/mpeg;base64,",
+    cachePath: silentWav,
   },
   {
     id: "BV1xx411c7mE",
@@ -60,7 +64,7 @@ export const sampleItems: SeedItem[] = [
     uploader: "Bob",
     duration: 241,
     cover: "data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><rect width='320' height='320' fill='%23333'/></svg>",
-    cachePath: "data:audio/mpeg;base64,",
+    cachePath: silentWav,
   },
   {
     id: "BV1xx411c7mF",
@@ -69,6 +73,6 @@ export const sampleItems: SeedItem[] = [
     uploader: "Carol",
     duration: 95,
     cover: "data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><rect width='320' height='320' fill='%23555'/></svg>",
-    cachePath: "data:audio/mpeg;base64,",
+    cachePath: silentWav,
   },
 ];
