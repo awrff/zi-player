@@ -1,0 +1,74 @@
+import { describe, expect, it } from "vitest";
+import {
+  nextId,
+  nextRepeatMode,
+  playOrder,
+  prevId,
+  shouldRestartOnPrev,
+  shuffledOrder,
+  skipRepeat,
+} from "./playQueue";
+
+describe("shuffledOrder", () => {
+  it("pins the current track first and shuffles the rest", () => {
+    const order = shuffledOrder(["a", "b", "c", "d"], "c", () => 0);
+    expect(order[0]).toBe("c");
+    expect(order.slice(1).sort()).toEqual(["a", "b", "d"]);
+    expect(order).toHaveLength(4);
+  });
+
+  it("shuffles the whole list when current is missing", () => {
+    const order = shuffledOrder(["a", "b"], null, () => 0);
+    expect(order.sort()).toEqual(["a", "b"]);
+  });
+});
+
+describe("playOrder", () => {
+  it("uses the shuffle snapshot when present", () => {
+    expect(playOrder(["a", "b"], ["b", "a"])).toEqual(["b", "a"]);
+    expect(playOrder(["a", "b"], null)).toEqual(["a", "b"]);
+  });
+});
+
+describe("nextId / prevId", () => {
+  const order = ["a", "b", "c"];
+
+  it("advances and stops at the end when repeat is off", () => {
+    expect(nextId(order, "a", "off")).toBe("b");
+    expect(nextId(order, "c", "off")).toBeNull();
+  });
+
+  it("wraps when repeat is all", () => {
+    expect(nextId(order, "c", "all")).toBe("a");
+    expect(prevId(order, "a", "all")).toBe("c");
+  });
+
+  it("stays on the current track when repeat is one", () => {
+    expect(nextId(order, "b", "one")).toBe("b");
+  });
+
+  it("goes to the previous track and stays on the first when repeat is off", () => {
+    expect(prevId(order, "b", "off")).toBe("a");
+    expect(prevId(order, "a", "off")).toBe("a");
+  });
+});
+
+describe("shouldRestartOnPrev", () => {
+  it("restarts after 3 seconds", () => {
+    expect(shouldRestartOnPrev(3)).toBe(false);
+    expect(shouldRestartOnPrev(3.1)).toBe(true);
+  });
+});
+
+describe("repeat helpers", () => {
+  it("cycles off → all → one → off", () => {
+    expect(nextRepeatMode("off")).toBe("all");
+    expect(nextRepeatMode("all")).toBe("one");
+    expect(nextRepeatMode("one")).toBe("off");
+  });
+
+  it("treats single-track repeat as off when skipping", () => {
+    expect(skipRepeat("one")).toBe("off");
+    expect(skipRepeat("all")).toBe("all");
+  });
+});

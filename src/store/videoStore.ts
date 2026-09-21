@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { newPlaylistId, nextPlaylistName } from "@/lib/playlist";
-import type { BoardViewMode, LibrarySelection, Playlist, VideoItem, VideoMeta } from "@/types";
+import { shuffledOrder } from "@/lib/playQueue";
+import type { BoardViewMode, LibrarySelection, Playlist, RepeatMode, VideoItem, VideoMeta } from "@/types";
 
 export interface VideoState {
   items: VideoItem[];
@@ -12,6 +13,12 @@ export interface VideoState {
   currentId: string | null;
   /** Whether the active track is currently playing (spinning). */
   playing: boolean;
+  /** Snapshot of song ids for the current play session. */
+  queueIds: string[];
+  /** Shuffled walk order; null when shuffle is off. */
+  shuffleOrder: string[] | null;
+  shuffle: boolean;
+  repeat: RepeatMode;
 
   /** Add a video; returns the new item, or null when it is a duplicate. */
   addVideo: (meta: VideoMeta) => VideoItem | null;
@@ -28,6 +35,11 @@ export interface VideoState {
   moveInPlaylist: (playlistId: string, songId: string, toIndex: number) => void;
   setSelectedLibrary: (id: LibrarySelection) => void;
   setBoardView: (mode: BoardViewMode) => void;
+
+  setQueue: (ids: string[], playingId?: string | null) => void;
+  setShuffle: (shuffle: boolean) => void;
+  setRepeat: (repeat: RepeatMode) => void;
+  removeFromQueue: (id: string) => void;
 
   /** Set the active track (and start playing it). */
   setCurrent: (id: string | null) => void;
@@ -52,6 +64,10 @@ export const useVideoStore = create<VideoState>()(
       boardView: "grid",
       currentId: null,
       playing: false,
+      queueIds: [],
+      shuffleOrder: null,
+      shuffle: false,
+      repeat: "off",
 
       addVideo: (meta) => {
         if (get().has(meta.id)) return null;
@@ -67,6 +83,8 @@ export const useVideoStore = create<VideoState>()(
         set((state) => ({
           items: state.items.filter((i) => i.id !== id),
           playlists: stripSong(state.playlists, id),
+          queueIds: state.queueIds.filter((songId) => songId !== id),
+          shuffleOrder: state.shuffleOrder?.filter((songId) => songId !== id) ?? null,
           currentId: state.currentId === id ? null : state.currentId,
           playing: state.currentId === id ? false : state.playing,
         }));
@@ -164,6 +182,31 @@ export const useVideoStore = create<VideoState>()(
       setSelectedLibrary: (id) => set({ selectedLibrary: id }),
       setBoardView: (mode) => set({ boardView: mode }),
 
+      setQueue: (ids, playingId) => {
+        const currentId = playingId !== undefined ? playingId : get().currentId;
+        set({
+          queueIds: ids,
+          shuffleOrder: get().shuffle ? shuffledOrder(ids, currentId) : null,
+        });
+      },
+
+      setShuffle: (shuffle) => {
+        const { queueIds, currentId } = get();
+        set({
+          shuffle,
+          shuffleOrder: shuffle ? shuffledOrder(queueIds, currentId) : null,
+        });
+      },
+
+      setRepeat: (repeat) => set({ repeat }),
+
+      removeFromQueue: (id) => {
+        set((state) => ({
+          queueIds: state.queueIds.filter((songId) => songId !== id),
+          shuffleOrder: state.shuffleOrder?.filter((songId) => songId !== id) ?? null,
+        }));
+      },
+
       setCurrent: (id) => set({ currentId: id, playing: id !== null }),
 
       setPlaying: (playing) => set({ playing }),
@@ -175,6 +218,8 @@ export const useVideoStore = create<VideoState>()(
         playlists: state.playlists,
         selectedLibrary: state.selectedLibrary,
         boardView: state.boardView,
+        shuffle: state.shuffle,
+        repeat: state.repeat,
       }),
     },
   ),

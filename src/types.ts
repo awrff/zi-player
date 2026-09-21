@@ -36,6 +36,9 @@ export type LibrarySelection = "all" | string;
 
 export type BoardViewMode = "grid" | "list";
 
+/** Spotify-style repeat: off, entire queue, or the current track. */
+export type RepeatMode = "off" | "all" | "one";
+
 export type ImportFailReason =
   | "not-a-url"
   | "not-bilibili"

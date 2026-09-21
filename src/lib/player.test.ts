@@ -61,6 +61,16 @@ describe("AudioPlayer", () => {
     expect(fake.paused).toBe(true);
   });
 
+  it("replays from the start without changing src", async () => {
+    const { player, fake } = makePlayer();
+    await player.play("mock://a");
+    fake.currentTime = 42;
+    await player.replay();
+    expect(fake.src).toBe("mock://a");
+    expect(fake.currentTime).toBe(0);
+    expect(fake.paused).toBe(false);
+  });
+
   it("seeks and clamps volume", () => {
     const { player, fake } = makePlayer();
     player.seek(30);

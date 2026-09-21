@@ -8,11 +8,13 @@ const h = vi.hoisted(() => ({
   audioUrl: vi.fn(),
   play: vi.fn(),
   pause: vi.fn(),
+  replay: vi.fn(),
   seek: vi.fn(),
   setVolume: vi.fn(),
   subscribe: vi.fn(() => () => {}),
   onEnded: vi.fn(() => () => {}),
   onError: vi.fn(() => () => {}),
+  currentTime: 0,
 }));
 
 vi.mock("@/lib/native", () => ({
@@ -26,12 +28,15 @@ vi.mock("@/lib/player", () => ({
   player: {
     play: h.play,
     pause: h.pause,
+    replay: h.replay,
     seek: h.seek,
     setVolume: h.setVolume,
     subscribe: h.subscribe,
     onEnded: h.onEnded,
     onError: h.onError,
-    currentTime: 0,
+    get currentTime() {
+      return h.currentTime;
+    },
     duration: 0,
     paused: true,
     volume: 1,
@@ -50,12 +55,31 @@ const item: VideoItem = {
   addedAt: 1,
 };
 
+const itemB: VideoItem = {
+  ...item,
+  id: "BV1xx411c7mE",
+  url: "https://www.bilibili.com/video/BV1xx411c7mE",
+  title: "第二首",
+};
+
 beforeEach(() => {
   h.downloadAudio.mockReset();
   h.audioUrl.mockReset();
   h.play.mockReset();
   h.pause.mockReset();
-  useVideoStore.setState({ items: [item], currentId: null, playing: false });
+  h.replay.mockReset();
+  h.seek.mockReset();
+  h.currentTime = 0;
+  h.replay.mockResolvedValue(undefined);
+  useVideoStore.setState({
+    items: [item],
+    currentId: null,
+    playing: false,
+    queueIds: [],
+    shuffleOrder: null,
+    shuffle: false,
+    repeat: "off",
+  });
 });
 
 describe("isReusableAudioCache", () => {
@@ -209,5 +233,85 @@ describe("usePlayer preparing", () => {
     expect(msg).toMatch(/测试曲目/);
     expect(msg).toMatch(/转码失败|ffmpeg/);
     expect(result.current.lastError).toBe(msg);
+  });
+});
+
+describe("usePlayer queue", () => {
+  function readyToPlay() {
+    h.audioUrl.mockImplementation(async (path: string) => path);
+    h.play.mockResolvedValue(undefined);
+  }
+
+  it("snapshots the list when playing a different track", async () => {
+    readyToPlay();
+    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
+    const cachedB = { ...itemB, cachePath: "data:audio/wav;base64,yyy" };
+    useVideoStore.setState({ items: [cached, cachedB] });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await result.current.playFromList(cached, [cached, cachedB]);
+    });
+
+    expect(useVideoStore.getState().queueIds).toEqual([cached.id, cachedB.id]);
+    expect(useVideoStore.getState().currentId).toBe(cached.id);
+  });
+
+  it("does not rebuild the queue when toggling the current track", async () => {
+    readyToPlay();
+    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
+    useVideoStore.setState({
+      items: [cached, itemB],
+      currentId: cached.id,
+      playing: true,
+      queueIds: [cached.id],
+    });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await result.current.playFromList(cached, [cached, itemB]);
+    });
+
+    expect(useVideoStore.getState().queueIds).toEqual([cached.id]);
+    expect(h.pause).toHaveBeenCalled();
+  });
+
+  it("plays the next queued track", async () => {
+    readyToPlay();
+    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
+    const cachedB = { ...itemB, cachePath: "data:audio/wav;base64,yyy" };
+    useVideoStore.setState({
+      items: [cached, cachedB],
+      currentId: cached.id,
+      playing: true,
+      queueIds: [cached.id, cachedB.id],
+    });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await result.current.playNext();
+    });
+
+    expect(h.play).toHaveBeenCalledWith("data:audio/wav;base64,yyy");
+    expect(useVideoStore.getState().currentId).toBe(cachedB.id);
+  });
+
+  it("restarts the current track when previous is pressed after 3s", async () => {
+    h.currentTime = 12;
+    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
+    useVideoStore.setState({
+      items: [cached],
+      currentId: cached.id,
+      playing: true,
+      queueIds: [cached.id],
+    });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await result.current.playPrev();
+    });
+
+    expect(h.seek).toHaveBeenCalledWith(0);
+    expect(h.play).not.toHaveBeenCalled();
   });
 });

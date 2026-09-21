@@ -65,6 +65,11 @@ export class AudioPlayer {
     this.audio.pause();
   }
 
+  async replay(): Promise<void> {
+    this.audio.currentTime = 0;
+    await this.audio.play();
+  }
+
   seek(seconds: number): void {
     if (Number.isFinite(seconds)) {
       this.audio.currentTime = Math.max(0, seconds);

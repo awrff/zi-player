@@ -21,6 +21,10 @@ beforeEach(() => {
     boardView: "grid",
     currentId: null,
     playing: false,
+    queueIds: [],
+    shuffleOrder: null,
+    shuffle: false,
+    repeat: "off",
   });
 });
 
@@ -131,6 +135,30 @@ describe("videoStore playlists", () => {
     useVideoStore.getState().addToPlaylist(playlist.id, "BV3");
     useVideoStore.getState().moveInPlaylist(playlist.id, "BV3", 0);
     expect(useVideoStore.getState().playlists[0].songIds).toEqual(["BV3", "BV1", "BV2"]);
+  });
+
+  it("snapshots a queue and rebuilds shuffle order around the playing track", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    useVideoStore.getState().addVideo(meta("BV2"));
+    useVideoStore.getState().addVideo(meta("BV3"));
+    useVideoStore.getState().setShuffle(true);
+    useVideoStore.getState().setQueue(["BV1", "BV2", "BV3"], "BV2");
+    expect(useVideoStore.getState().queueIds).toEqual(["BV1", "BV2", "BV3"]);
+    expect(useVideoStore.getState().shuffleOrder?.[0]).toBe("BV2");
+    expect(useVideoStore.getState().shuffleOrder).toHaveLength(3);
+
+    useVideoStore.getState().setShuffle(false);
+    expect(useVideoStore.getState().shuffleOrder).toBeNull();
+  });
+
+  it("removes a library item from the play queue", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    useVideoStore.getState().addVideo(meta("BV2"));
+    useVideoStore.getState().setQueue(["BV1", "BV2"], "BV1");
+    useVideoStore.getState().setCurrent("BV1");
+    useVideoStore.getState().removeVideo("BV1");
+    expect(useVideoStore.getState().queueIds).toEqual(["BV2"]);
+    expect(useVideoStore.getState().currentId).toBeNull();
   });
 
   it("strips a deleted video from every playlist", () => {

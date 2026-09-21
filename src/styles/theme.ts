@@ -9,6 +9,8 @@ export const theme: ThemeConfig = {
     colorTextBase: "#f5f5f7",
     colorBgContainer: "rgba(255,255,255,0.08)",
     colorBgElevated: "rgba(40,26,36,0.92)",
+    colorBgSpotlight: "rgba(28,16,24,0.96)",
+    colorTextLightSolid: "#efe6ec",
     colorBorder: "rgba(255,255,255,0.16)",
     colorBorderSecondary: "rgba(255,255,255,0.1)",
     borderRadius: 12,
@@ -26,6 +28,10 @@ export const theme: ThemeConfig = {
     Slider: {
       railBg: "rgba(255,255,255,0.18)",
       railHoverBg: "rgba(255,255,255,0.24)",
+    },
+    Tooltip: {
+      colorBgSpotlight: "rgba(28,16,24,0.96)",
+      colorTextLightSolid: "#efe6ec",
     },
   },
 };

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { native } from "@/lib/native";
 import { player } from "@/lib/player";
+import { nextId, nextRepeatMode, playOrder, prevId, shouldRestartOnPrev, skipRepeat } from "@/lib/playQueue";
+import { resolvePlaylistSongs } from "@/lib/playlist";
 import { formatSidecarGuidance } from "@/lib/sidecarError";
 import { useVideoStore } from "@/store/videoStore";
-import type { VideoItem } from "@/types";
+import type { RepeatMode, VideoItem } from "@/types";
 
 export interface PlayerControls {
   current: VideoItem | null;
@@ -12,21 +14,29 @@ export interface PlayerControls {
   duration: number;
   paused: boolean;
   volume: number;
-  /** Last playback/download/decode error, in Chinese; null when none. */
   lastError: string | null;
-  /** True while download / transcode / audio_url is in flight. */
   preparing: boolean;
+  shuffle: boolean;
+  repeat: RepeatMode;
+  queue: VideoItem[];
+  canPrev: boolean;
+  canNext: boolean;
   toggle: (item: VideoItem) => Promise<void>;
+  playFromList: (item: VideoItem, list: VideoItem[]) => Promise<void>;
+  playId: (id: string) => Promise<void>;
+  playNext: () => Promise<void>;
+  playPrev: () => Promise<void>;
   pause: () => void;
   stop: () => void;
   seek: (seconds: number) => void;
   setVolume: (value: number) => void;
+  setShuffle: (value: boolean) => void;
+  cycleRepeat: () => void;
+  removeFromQueue: (id: string) => void;
 }
 
-/** Inline / status copy shown while a vinyl is preparing to play. */
 export const PREPARING_HINT = "正在准备音频…";
 
-/** Flatten Tauri / Error / string rejections into the message the UI shows. */
 export function hostErrorText(err: unknown): string {
   if (typeof err === "string") return err;
   if (err instanceof Error && err.message) return err.message;
@@ -46,7 +56,6 @@ export function formatDecodeError(code: number | null, message: string): string 
   return `音频无法解码${detail}，请确认已打包 ffmpeg 或安装系统编解码器`;
 }
 
-/** Local OGG, or a mock/e2e `data:audio/…` fixture. Stale AAC / asset URLs are not reusable. */
 export function isReusableAudioCache(path: string | undefined): boolean {
   if (!path) return false;
   if (/^(asset|blob|https?):/i.test(path)) return false;
@@ -58,11 +67,21 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const items = useVideoStore((s) => s.items);
   const currentId = useVideoStore((s) => s.currentId);
   const playing = useVideoStore((s) => s.playing);
+  const queueIds = useVideoStore((s) => s.queueIds);
+  const shuffleOrder = useVideoStore((s) => s.shuffleOrder);
+  const shuffle = useVideoStore((s) => s.shuffle);
+  const repeat = useVideoStore((s) => s.repeat);
   const setCurrent = useVideoStore((s) => s.setCurrent);
   const setPlaying = useVideoStore((s) => s.setPlaying);
   const setCachePath = useVideoStore((s) => s.setCachePath);
+  const setQueue = useVideoStore((s) => s.setQueue);
+  const setShuffleState = useVideoStore((s) => s.setShuffle);
+  const setRepeat = useVideoStore((s) => s.setRepeat);
+  const dropFromQueue = useVideoStore((s) => s.removeFromQueue);
 
   const current = items.find((i) => i.id === currentId) ?? null;
+  const order = playOrder(queueIds, shuffleOrder);
+  const queue = resolvePlaylistSongs(order, items);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
@@ -82,46 +101,18 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     [onError],
   );
 
-  useEffect(() => {
-    const unsub = player.subscribe(() => {
-      setCurrentTime(player.currentTime);
-      setAudioDuration(player.duration);
-      setPaused(player.paused);
-    });
-    const unsubEnded = player.onEnded(() => setPlaying(false));
-    const unsubError = player.onError((code, message) => {
-      setPlaying(false);
-      reportError(formatDecodeError(code, message));
-    });
-    return () => {
-      unsub();
-      unsubEnded();
-      unsubError();
-    };
-  }, [setPlaying, reportError]);
-
-  // Bilibili DASH audio has no duration metadata, so HTMLAudioElement.duration is
-  // Infinity (coerced to 0 by AudioPlayer). Use the duration resolved from yt-dlp
-  // as the authoritative total, falling back to the element only if metadata is
-  // missing.
-  const duration = current && current.duration > 0 ? current.duration : audioDuration;
-
-  const toggle = useCallback(
+  const playItem = useCallback(
     async (item: VideoItem) => {
-      if (item.id === currentId && playing) {
-        player.pause();
-        setPlaying(false);
-        return;
-      }
       setCurrent(item.id);
       reportedRef.current = false;
       setLastError(null);
       setPreparing(true);
       try {
-        let path = item.cachePath;
+        const latest = useVideoStore.getState().items.find((i) => i.id === item.id) ?? item;
+        let path = [item.cachePath, latest.cachePath].find(isReusableAudioCache) ?? item.cachePath ?? latest.cachePath;
         if (!isReusableAudioCache(path)) {
-          path = await native.downloadAudio(item.id, item.url);
-          setCachePath(item.id, path);
+          path = await native.downloadAudio(latest.id, latest.url);
+          setCachePath(latest.id, path);
         }
         if (!path) throw new Error("音频缓存路径为空");
         const src = await native.audioUrl(path);
@@ -133,8 +124,106 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
         setPreparing(false);
       }
     },
-    [currentId, playing, setCurrent, setPlaying, setCachePath, reportError],
+    [setCurrent, setCachePath, reportError],
   );
+
+  const playItemRef = useRef(playItem);
+  playItemRef.current = playItem;
+
+  useEffect(() => {
+    const unsub = player.subscribe(() => {
+      setCurrentTime(player.currentTime);
+      setAudioDuration(player.duration);
+      setPaused(player.paused);
+    });
+    const unsubEnded = player.onEnded(() => {
+      const state = useVideoStore.getState();
+      if (state.repeat === "one" && state.currentId) {
+        void player.replay().then(() => state.setPlaying(true));
+        return;
+      }
+      const walk = playOrder(state.queueIds, state.shuffleOrder);
+      const id = nextId(walk, state.currentId, skipRepeat(state.repeat));
+      const item = id ? state.items.find((i) => i.id === id) : undefined;
+      if (!item) {
+        state.setPlaying(false);
+        return;
+      }
+      void playItemRef.current(item);
+    });
+    const unsubError = player.onError((code, message) => {
+      setPlaying(false);
+      reportError(formatDecodeError(code, message));
+    });
+    return () => {
+      unsub();
+      unsubEnded();
+      unsubError();
+    };
+  }, [setPlaying, reportError]);
+
+  useEffect(() => {
+    if (currentId === null) player.pause();
+  }, [currentId]);
+
+  const duration = current && current.duration > 0 ? current.duration : audioDuration;
+
+  const toggle = useCallback(
+    async (item: VideoItem) => {
+      if (item.id === currentId && playing) {
+        player.pause();
+        setPlaying(false);
+        return;
+      }
+      await playItem(item);
+    },
+    [currentId, playing, setPlaying, playItem],
+  );
+
+  const playFromList = useCallback(
+    async (item: VideoItem, list: VideoItem[]) => {
+      if (item.id !== currentId) {
+        setQueue(
+          list.map((entry) => entry.id),
+          item.id,
+        );
+      }
+      await toggle(item);
+    },
+    [currentId, setQueue, toggle],
+  );
+
+  const playId = useCallback(
+    async (id: string) => {
+      const item = useVideoStore.getState().items.find((entry) => entry.id === id);
+      if (item) await playItem(item);
+    },
+    [playItem],
+  );
+
+  const playNext = useCallback(async () => {
+    const state = useVideoStore.getState();
+    const walk = playOrder(state.queueIds, state.shuffleOrder);
+    const id = nextId(walk, state.currentId, skipRepeat(state.repeat));
+    const item = id ? state.items.find((entry) => entry.id === id) : undefined;
+    if (item) await playItem(item);
+  }, [playItem]);
+
+  const playPrev = useCallback(async () => {
+    if (shouldRestartOnPrev(player.currentTime)) {
+      player.seek(0);
+      return;
+    }
+    const state = useVideoStore.getState();
+    const walk = playOrder(state.queueIds, state.shuffleOrder);
+    const id = prevId(walk, state.currentId, skipRepeat(state.repeat));
+    if (!id || id === state.currentId) {
+      player.seek(0);
+      return;
+    }
+    const item = state.items.find((entry) => entry.id === id);
+    if (item) await playItem(item);
+  }, [playItem]);
 
   const pause = useCallback(() => {
     player.pause();
@@ -153,5 +242,65 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     setVolumeState(player.volume);
   }, []);
 
-  return { current, playing, currentTime, duration, paused, volume, lastError, preparing, toggle, pause, stop, seek, setVolume };
+  const setShuffle = useCallback(
+    (value: boolean) => {
+      setShuffleState(value);
+    },
+    [setShuffleState],
+  );
+
+  const cycleRepeat = useCallback(() => {
+    setRepeat(nextRepeatMode(useVideoStore.getState().repeat));
+  }, [setRepeat]);
+
+  const removeFromQueue = useCallback(
+    (id: string) => {
+      const state = useVideoStore.getState();
+      const wasCurrent = state.currentId === id;
+      dropFromQueue(id);
+      if (!wasCurrent) return;
+      const nextState = useVideoStore.getState();
+      const walk = playOrder(nextState.queueIds, nextState.shuffleOrder);
+      const next = nextId(walk, null, "off");
+      const item = next ? nextState.items.find((entry) => entry.id === next) : undefined;
+      if (item) {
+        void playItem(item);
+        return;
+      }
+      stop();
+    },
+    [dropFromQueue, playItem, stop],
+  );
+
+  const skipMode = skipRepeat(repeat);
+  const canPrev = current !== null;
+  const canNext = current !== null && nextId(order, currentId, skipMode) !== null;
+
+  return {
+    current,
+    playing,
+    currentTime,
+    duration,
+    paused,
+    volume,
+    lastError,
+    preparing,
+    shuffle,
+    repeat,
+    queue,
+    canPrev,
+    canNext,
+    toggle,
+    playFromList,
+    playId,
+    playNext,
+    playPrev,
+    pause,
+    stop,
+    seek,
+    setVolume,
+    setShuffle,
+    cycleRepeat,
+    removeFromQueue,
+  };
 }

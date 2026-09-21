@@ -162,7 +162,7 @@ function BoardApp() {
             playing={playing}
             viewMode={boardView}
             emptyKind={currentPlaylist ? "playlist" : "library"}
-            onToggle={(item) => void controls.toggle(item)}
+            onToggle={(item) => void controls.playFromList(item, scopedItems)}
             onDelete={currentPlaylist ? undefined : (item) => removeVideo(item.id)}
             onRename={renameVideo}
             playlists={playlists}
@@ -184,7 +184,7 @@ function BoardApp() {
         </div>
       </div>
 
-      <PlayerBar controls={controls} onDelete={removeVideo} />
+      <PlayerBar controls={controls} />
 
       <AddVideoModal open={addOpen} onClose={() => setAddOpen(false)} />
       <ClipboardImportPrompt url={clipUrl} onClose={() => setClipUrl(null)} />
