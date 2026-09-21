@@ -1,56 +1,32 @@
-import { Dropdown, Modal } from "antd";
-import type { MenuProps } from "antd";
+import { Dropdown } from "antd";
 import { PauseCircleFilled, PlayCircleFilled } from "@ant-design/icons";
 import type { VideoItem } from "@/types";
 import { formatDuration } from "@/lib/format";
 import { VinylDisc } from "./VinylDisc";
+import { buildTrackMenu, type TrackMenuHandlers } from "./trackContextMenu";
 
-interface TurntableProps {
+interface TurntableProps extends TrackMenuHandlers {
   item: VideoItem;
   playing: boolean;
-  onToggle: (item: VideoItem) => void;
-  onDelete: (item: VideoItem) => void;
-  onRename: (item: VideoItem) => void;
 }
 
-export function Turntable({ item, playing, onToggle, onDelete, onRename }: TurntableProps) {
+export function Turntable({ item, playing, ...handlers }: TurntableProps) {
   const classes = ["turntable", playing ? "is-playing" : ""].filter(Boolean).join(" ");
 
-  const menu: MenuProps = {
-    items: [
-      { key: "toggle", label: playing ? "暂停" : "播放" },
-      { key: "rename", label: "重命名" },
-      { key: "delete", label: "删除", danger: true },
-    ],
-    onClick: ({ key, domEvent }) => {
-      domEvent.stopPropagation();
-      if (key === "toggle") onToggle(item);
-      if (key === "rename") onRename(item);
-      if (key === "delete") {
-        Modal.confirm({
-          title: "删除这条记录？",
-          okText: "删除",
-          cancelText: "取消",
-          onOk: () => onDelete(item),
-        });
-      }
-    },
-  };
-
   return (
-    <Dropdown trigger={["contextMenu"]} menu={menu}>
+    <Dropdown trigger={["contextMenu"]} menu={buildTrackMenu(item, playing, handlers)}>
       <div
         className={classes}
         data-testid="turntable"
         data-id={item.id}
         data-playing={playing || undefined}
-        onClick={() => onToggle(item)}
+        onClick={() => handlers.onToggle(item)}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onToggle(item);
+            handlers.onToggle(item);
           }
         }}
       >

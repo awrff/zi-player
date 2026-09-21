@@ -66,6 +66,25 @@ describe("Turntable", () => {
     expect(await screen.findByRole("menuitem", { name: "暂停" })).toBeInTheDocument();
   });
 
+  it("adds a song to a playlist from the context menu", async () => {
+    const onAddToPlaylist = vi.fn();
+    render(
+      <Turntable
+        item={item}
+        playing={false}
+        onToggle={() => {}}
+        onDelete={() => {}}
+        onRename={() => {}}
+        playlists={[{ id: "pl-1", name: "通勤", songIds: [], createdAt: 1, updatedAt: 1 }]}
+        onAddToPlaylist={onAddToPlaylist}
+        onCreatePlaylistFor={() => {}}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("turntable"));
+    expect(await screen.findByText("添加到歌单")).toBeInTheDocument();
+  });
+
   it("exposes rename and delete in the context menu", async () => {
     const onRename = vi.fn();
     const onDelete = vi.fn();

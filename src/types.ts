@@ -22,6 +22,20 @@ export interface VideoItem extends VideoMeta {
   cachePath?: string;
 }
 
+/** A named, ordered list of library video ids. */
+export interface Playlist {
+  id: string;
+  name: string;
+  songIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** `"all"` is the full library; any other value is a playlist id. */
+export type LibrarySelection = "all" | string;
+
+export type BoardViewMode = "grid" | "list";
+
 export type ImportFailReason =
   | "not-a-url"
   | "not-bilibili"

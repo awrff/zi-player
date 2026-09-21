@@ -49,6 +49,31 @@ describe("Board", () => {
     expect(playing[0]).toHaveAttribute("data-id", "BV1");
   });
 
+  it("shows playlist empty copy", () => {
+    render(
+      <Board
+        items={[]}
+        playingId={null}
+        playing={false}
+        emptyKind="playlist"
+        onToggle={() => {}}
+        onRename={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("这个歌单还是空的");
+    expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("添加到歌单");
+  });
+
+  it("renders a list view of tracks", () => {
+    render(
+      <Board items={makeItems(2)} playingId="BV1" playing viewMode="list" onToggle={() => {}} onRename={() => {}} />,
+    );
+    expect(screen.getByTestId("track-list")).toBeInTheDocument();
+    expect(screen.getAllByTestId("track-row")).toHaveLength(2);
+    expect(screen.queryByTestId("board-grid")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("track-row")[1]).toHaveAttribute("data-playing");
+  });
+
   it("renames an item through the modal", async () => {
     const onRename = vi.fn();
     render(

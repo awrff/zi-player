@@ -14,7 +14,14 @@ function meta(id: string): VideoMeta {
 }
 
 beforeEach(() => {
-  useVideoStore.setState({ items: [], currentId: null, playing: false });
+  useVideoStore.setState({
+    items: [],
+    playlists: [],
+    selectedLibrary: "all",
+    boardView: "grid",
+    currentId: null,
+    playing: false,
+  });
 });
 
 describe("videoStore", () => {
@@ -63,5 +70,76 @@ describe("videoStore", () => {
     useVideoStore.getState().addVideo(meta("BV1"));
     useVideoStore.getState().setCachePath("BV1", "mock://audio/BV1.m4a");
     expect(useVideoStore.getState().items[0].cachePath).toBe("mock://audio/BV1.m4a");
+  });
+});
+
+describe("videoStore playlists", () => {
+  it("creates a playlist with a default name and selects it", () => {
+    const first = useVideoStore.getState().createPlaylist();
+    expect(first).not.toBeNull();
+    expect(first!.name).toBe("歌单 1");
+    expect(useVideoStore.getState().selectedLibrary).toBe(first!.id);
+
+    const second = useVideoStore.getState().createPlaylist();
+    expect(second!.name).toBe("歌单 2");
+  });
+
+  it("rejects a blank playlist name", () => {
+    expect(useVideoStore.getState().createPlaylist("   ")).toBeNull();
+    expect(useVideoStore.getState().playlists).toHaveLength(0);
+  });
+
+  it("renames a playlist", () => {
+    const playlist = useVideoStore.getState().createPlaylist("草稿")!;
+    expect(useVideoStore.getState().renamePlaylist(playlist.id, "通勤")).toBe(true);
+    expect(useVideoStore.getState().playlists[0].name).toBe("通勤");
+    expect(useVideoStore.getState().renamePlaylist(playlist.id, "  ")).toBe(false);
+  });
+
+  it("deletes a playlist and returns to the library", () => {
+    const playlist = useVideoStore.getState().createPlaylist("临时")!;
+    useVideoStore.getState().deletePlaylist(playlist.id);
+    expect(useVideoStore.getState().playlists).toHaveLength(0);
+    expect(useVideoStore.getState().selectedLibrary).toBe("all");
+  });
+
+  it("adds a song once and rejects duplicates", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    const playlist = useVideoStore.getState().createPlaylist("通勤")!;
+    expect(useVideoStore.getState().addToPlaylist(playlist.id, "BV1")).toBe(true);
+    expect(useVideoStore.getState().addToPlaylist(playlist.id, "BV1")).toBe(false);
+    expect(useVideoStore.getState().addToPlaylist(playlist.id, "missing")).toBe(false);
+    expect(useVideoStore.getState().playlists[0].songIds).toEqual(["BV1"]);
+  });
+
+  it("removes a song from a playlist without deleting the library item", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    const playlist = useVideoStore.getState().createPlaylist("通勤")!;
+    useVideoStore.getState().addToPlaylist(playlist.id, "BV1");
+    useVideoStore.getState().removeFromPlaylist(playlist.id, "BV1");
+    expect(useVideoStore.getState().playlists[0].songIds).toEqual([]);
+    expect(useVideoStore.getState().items).toHaveLength(1);
+  });
+
+  it("reorders songs inside a playlist", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    useVideoStore.getState().addVideo(meta("BV2"));
+    useVideoStore.getState().addVideo(meta("BV3"));
+    const playlist = useVideoStore.getState().createPlaylist("通勤")!;
+    useVideoStore.getState().addToPlaylist(playlist.id, "BV1");
+    useVideoStore.getState().addToPlaylist(playlist.id, "BV2");
+    useVideoStore.getState().addToPlaylist(playlist.id, "BV3");
+    useVideoStore.getState().moveInPlaylist(playlist.id, "BV3", 0);
+    expect(useVideoStore.getState().playlists[0].songIds).toEqual(["BV3", "BV1", "BV2"]);
+  });
+
+  it("strips a deleted video from every playlist", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    const one = useVideoStore.getState().createPlaylist("A")!;
+    const two = useVideoStore.getState().createPlaylist("B")!;
+    useVideoStore.getState().addToPlaylist(one.id, "BV1");
+    useVideoStore.getState().addToPlaylist(two.id, "BV1");
+    useVideoStore.getState().removeVideo("BV1");
+    expect(useVideoStore.getState().playlists.map((p) => p.songIds)).toEqual([[], []]);
   });
 });
