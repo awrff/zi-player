@@ -41,6 +41,16 @@ describe("Turntable", () => {
     expect(onToggle).toHaveBeenCalledWith(item);
   });
 
+  it("shows a play overlay that switches to pause while playing", () => {
+    const { rerender } = render(
+      <Turntable item={item} playing={false} onToggle={() => {}} onDelete={() => {}} onRename={() => {}} />,
+    );
+    expect(screen.getByTestId("turntable-play").querySelector(".anticon-play-circle")).toBeTruthy();
+
+    rerender(<Turntable item={item} playing onToggle={() => {}} onDelete={() => {}} onRename={() => {}} />);
+    expect(screen.getByTestId("turntable-play").querySelector(".anticon-pause-circle")).toBeTruthy();
+  });
+
   it("toggles from the context menu and switches the label", async () => {
     const onToggle = vi.fn();
     const { rerender } = render(

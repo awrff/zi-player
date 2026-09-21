@@ -1,5 +1,6 @@
 import { Dropdown, Modal } from "antd";
 import type { MenuProps } from "antd";
+import { PauseCircleFilled, PlayCircleFilled } from "@ant-design/icons";
 import type { VideoItem } from "@/types";
 import { formatDuration } from "@/lib/format";
 import { VinylDisc } from "./VinylDisc";
@@ -55,6 +56,9 @@ export function Turntable({ item, playing, onToggle, onDelete, onRename }: Turnt
       >
         <div className="turntable-cover-wrap">
           <img className="turntable-cover" src={item.cover} alt={item.title} draggable={false} />
+          <span className="turntable-play" data-testid="turntable-play" aria-hidden>
+            {playing ? <PauseCircleFilled /> : <PlayCircleFilled />}
+          </span>
         </div>
 
         <div className="turntable-deck">

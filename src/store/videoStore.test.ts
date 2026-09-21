@@ -48,22 +48,6 @@ describe("videoStore", () => {
     expect(useVideoStore.getState().playing).toBe(false);
   });
 
-  it("reorders items", () => {
-    useVideoStore.getState().addVideo(meta("BV1"));
-    useVideoStore.getState().addVideo(meta("BV2"));
-    useVideoStore.getState().addVideo(meta("BV3"));
-    useVideoStore.getState().reorder(0, 2);
-    expect(useVideoStore.getState().items.map((i) => i.id)).toEqual(["BV2", "BV3", "BV1"]);
-  });
-
-  it("clearAll resets everything", () => {
-    useVideoStore.getState().addVideo(meta("BV1"));
-    useVideoStore.getState().setCurrent("BV1");
-    useVideoStore.getState().clearAll();
-    expect(useVideoStore.getState().items).toHaveLength(0);
-    expect(useVideoStore.getState().currentId).toBeNull();
-  });
-
   it("setCurrent starts playing; setPlaying toggles pause", () => {
     useVideoStore.getState().addVideo(meta("BV1"));
     useVideoStore.getState().setCurrent("BV1");

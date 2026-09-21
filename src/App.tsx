@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { App as AntApp, Button, ConfigProvider, Input, Tooltip } from "antd";
-import { ClearOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { theme } from "@/styles/theme";
 import { useVideoStore } from "@/store/videoStore";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -22,8 +22,6 @@ function BoardApp() {
   const playing = useVideoStore((s) => s.playing);
   const removeVideo = useVideoStore((s) => s.removeVideo);
   const renameVideo = useVideoStore((s) => s.renameVideo);
-  const reorder = useVideoStore((s) => s.reorder);
-  const clearAll = useVideoStore((s) => s.clearAll);
 
   const [addOpen, setAddOpen] = useState(false);
   const [clipUrl, setClipUrl] = useState<string | null>(null);
@@ -70,13 +68,6 @@ function BoardApp() {
         <Tooltip title={`全局快捷键唤起应用（Ctrl+Alt+B），复制 B 站链接后打开应用即可自动导入`}>
           <span style={{ color: "var(--text-dim)", fontSize: 12 }}>Ctrl+Alt+B 唤起</span>
         </Tooltip>
-        <Button
-          icon={<ClearOutlined />}
-          disabled={items.length === 0}
-          onClick={() => clearAll()}
-        >
-          清空
-        </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
           添加
         </Button>
@@ -96,16 +87,6 @@ function BoardApp() {
             onToggle={(item) => void controls.toggle(item)}
             onDelete={(item) => removeVideo(item.id)}
             onRename={renameVideo}
-            onReorder={(from, to) => {
-              const fromId = visibleItems[from]?.id;
-              const toId = visibleItems[to]?.id;
-              if (!fromId || !toId) return;
-              const all = useVideoStore.getState().items;
-              reorder(
-                all.findIndex((item) => item.id === fromId),
-                all.findIndex((item) => item.id === toId),
-              );
-            }}
           />
         </div>
       </div>

@@ -13,9 +13,6 @@ export interface VideoState {
   addVideo: (meta: VideoMeta) => VideoItem | null;
   removeVideo: (id: string) => void;
   renameVideo: (id: string, title: string) => void;
-  /** Move an item from one index to another (drag reorder). */
-  reorder: (from: number, to: number) => void;
-  clearAll: () => void;
   setCachePath: (id: string, path: string) => void;
   has: (id: string) => boolean;
 
@@ -23,16 +20,6 @@ export interface VideoState {
   setCurrent: (id: string | null) => void;
   /** Pause/resume the active track. */
   setPlaying: (playing: boolean) => void;
-}
-
-function move<T>(arr: T[], from: number, to: number): T[] {
-  if (from === to || from < 0 || from >= arr.length || to < 0 || to >= arr.length) {
-    return arr;
-  }
-  const next = arr.slice();
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item);
-  return next;
 }
 
 export const useVideoStore = create<VideoState>()(
@@ -65,12 +52,6 @@ export const useVideoStore = create<VideoState>()(
           items: state.items.map((i) => (i.id === id ? { ...i, title } : i)),
         }));
       },
-
-      reorder: (from, to) => {
-        set((state) => ({ items: move(state.items, from, to) }));
-      },
-
-      clearAll: () => set({ items: [], currentId: null, playing: false }),
 
       setCachePath: (id, path) => {
         set((state) => ({
