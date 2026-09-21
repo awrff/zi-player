@@ -1,6 +1,6 @@
 [package]
 name = "bilibili-board"
-version = "0.1.0"
+version = "0.2.0"
 description = "Bilibili links as a spinning record board (audio-only playback)"
 authors = ["you"]
 edition = "2021"
