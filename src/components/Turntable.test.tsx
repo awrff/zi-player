@@ -41,13 +41,31 @@ describe("Turntable", () => {
     expect(onToggle).toHaveBeenCalledWith(item);
   });
 
-  it("exposes rename and delete actions", () => {
+  it("toggles from the context menu and switches the label", async () => {
+    const onToggle = vi.fn();
+    const { rerender } = render(
+      <Turntable item={item} playing={false} onToggle={onToggle} onDelete={() => {}} onRename={() => {}} />,
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("turntable"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "播放" }));
+    expect(onToggle).toHaveBeenCalledWith(item);
+
+    rerender(<Turntable item={item} playing onToggle={onToggle} onDelete={() => {}} onRename={() => {}} />);
+    fireEvent.contextMenu(screen.getByTestId("turntable"));
+    expect(await screen.findByRole("menuitem", { name: "暂停" })).toBeInTheDocument();
+  });
+
+  it("exposes rename and delete in the context menu", async () => {
     const onRename = vi.fn();
     const onDelete = vi.fn();
     render(<Turntable item={item} playing={false} onToggle={() => {}} onDelete={onDelete} onRename={onRename} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "rename" }));
+    fireEvent.contextMenu(screen.getByTestId("turntable"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "重命名" }));
     expect(onRename).toHaveBeenCalledWith(item);
-    expect(screen.getByRole("button", { name: "delete" })).toBeInTheDocument();
+
+    fireEvent.contextMenu(screen.getByTestId("turntable"));
+    expect(await screen.findByRole("menuitem", { name: "删除" })).toBeInTheDocument();
   });
 });

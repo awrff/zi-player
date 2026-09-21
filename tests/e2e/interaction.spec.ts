@@ -30,7 +30,8 @@ test("playing toggles the spinning record", async ({ page }) => {
 
 test("deletes a record", async ({ page }) => {
   await gotoBoard(page, sampleItems.slice(0, 1));
-  await page.getByRole("button", { name: "delete", exact: true }).click();
+  await page.getByTestId("turntable").first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "删除" }).click();
   await page.getByRole("button", { name: /删\s*除/ }).click();
 
   await expect(page.getByTestId("board-empty")).toBeVisible();
@@ -82,7 +83,8 @@ test("reorders records by dragging one onto another and persists the order", asy
 
 test("renames a record", async ({ page }) => {
   await gotoBoard(page, sampleItems.slice(0, 1));
-  await page.getByRole("button", { name: "rename", exact: true }).click();
+  await page.getByTestId("turntable").first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "重命名" }).click();
 
   const modal = page.getByRole("dialog");
   await modal.getByLabel("rename-input").fill("Renamed record");

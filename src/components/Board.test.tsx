@@ -49,13 +49,14 @@ describe("Board", () => {
     expect(playing[0]).toHaveAttribute("data-id", "BV1");
   });
 
-  it("renames an item through the modal", () => {
+  it("renames an item through the modal", async () => {
     const onRename = vi.fn();
     render(
       <Board items={makeItems(2)} playingId={null} playing={false} onToggle={() => {}} onDelete={() => {}} onRename={onRename} />,
     );
 
-    fireEvent.click(screen.getAllByRole("button", { name: "rename" })[0]);
+    fireEvent.contextMenu(screen.getAllByTestId("turntable")[0]);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "重命名" }));
     const dialog = screen.getByRole("dialog");
     const input = within(dialog).getByLabelText("rename-input");
     fireEvent.change(input, { target: { value: "新标题" } });

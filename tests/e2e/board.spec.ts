@@ -5,6 +5,9 @@ test("shows an empty state when the board is empty", async ({ page }) => {
   await gotoBoard(page, []);
   await expect(page.getByTestId("board-empty")).toBeVisible();
   await expect(page.getByTestId("player-bar")).toBeVisible();
+  await expect(page.getByTestId("library-sidebar")).toBeVisible();
+  await expect(page.getByTestId("library-all")).toContainText("全部唱片");
+  await expect(page.getByTestId("library-new-playlist")).toBeDisabled();
 });
 
 test("renders a cover, spinning disc and title for every record", async ({ page }) => {

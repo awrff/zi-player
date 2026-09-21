@@ -69,6 +69,103 @@ body {
   flex: 1;
 }
 
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---------- Library sidebar ---------- */
+
+.library-sidebar {
+  width: 208px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 14px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  overflow: auto;
+}
+
+.library-section-title {
+  margin: 0 0 8px;
+  padding: 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.library-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.library-item.is-active {
+  background: var(--surface-strong);
+  color: var(--ub-orange);
+}
+
+.library-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.library-item-count {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.library-item.is-active .library-item-count {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.library-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 4px 10px;
+  flex-shrink: 0;
+}
+
+.library-heading h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.library-heading-meta {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 /* ---------- Frosted glass board ---------- */
 
 .board {
@@ -86,8 +183,8 @@ body {
 
 .board-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 16px;
 }
 
 .board-slot {
@@ -101,11 +198,6 @@ body {
 .board-slot:active,
 .board-slot:active .turntable {
   cursor: grabbing;
-}
-
-.board-slot .turntable-actions,
-.board-slot .turntable-actions * {
-  cursor: pointer;
 }
 
 .board-slot.is-dragging {
@@ -129,7 +221,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 14px 14px;
+  padding: 12px;
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--surface-border);
@@ -171,9 +263,9 @@ body {
 
 .turntable-deck {
   position: relative;
-  width: 150px;
-  height: 150px;
-  margin-top: -34px;
+  width: 108px;
+  height: 108px;
+  margin-top: -56px;
   z-index: 1;
 }
 
@@ -183,7 +275,7 @@ body {
   top: 2px;
   right: 6px;
   width: 4px;
-  height: 74px;
+  height: 52px;
   border-radius: 4px;
   background: linear-gradient(#bbb, #777);
   transform-origin: 2px 2px;
@@ -274,23 +366,6 @@ body {
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--text-dim);
-}
-
-/* Hover action buttons overlaid on the card. */
-.turntable-actions {
-  position: absolute;
-  top: 12px;
-  right: 10px;
-  display: flex;
-  gap: 6px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  z-index: 4;
-}
-
-.turntable:hover .turntable-actions,
-.turntable.is-playing .turntable-actions {
-  opacity: 1;
 }
 
 /* ---------- Player bar ---------- */
@@ -400,16 +475,37 @@ body {
   .board {
     padding: 14px;
   }
+  .app-body {
+    flex-direction: column;
+  }
+  .library-sidebar {
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 10px;
+    overflow-x: auto;
+  }
+  .library-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .library-section-title {
+    margin: 0;
+  }
   .board-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
   }
   .turntable-deck {
-    width: 120px;
-    height: 120px;
+    width: 88px;
+    height: 88px;
+    margin-top: -46px;
   }
   .tonearm {
-    height: 58px;
+    height: 42px;
   }
   .player-meta {
     flex-basis: 100px;

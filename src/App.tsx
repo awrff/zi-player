@@ -7,6 +7,7 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { useClipboardWatch } from "@/hooks/useClipboardWatch";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
 import { Board } from "@/components/Board";
+import { LibrarySidebar } from "@/components/LibrarySidebar";
 import { PlayerBar } from "@/components/PlayerBar";
 import { AddVideoModal } from "@/components/AddVideoModal";
 import { ClipboardImportPrompt } from "@/components/ClipboardImportPrompt";
@@ -81,24 +82,33 @@ function BoardApp() {
         </Button>
       </header>
 
-      <Board
-        items={visibleItems}
-        playingId={currentId}
-        playing={playing}
-        onToggle={(item) => void controls.toggle(item)}
-        onDelete={(item) => removeVideo(item.id)}
-        onRename={renameVideo}
-        onReorder={(from, to) => {
-          const fromId = visibleItems[from]?.id;
-          const toId = visibleItems[to]?.id;
-          if (!fromId || !toId) return;
-          const all = useVideoStore.getState().items;
-          reorder(
-            all.findIndex((item) => item.id === fromId),
-            all.findIndex((item) => item.id === toId),
-          );
-        }}
-      />
+      <div className="app-body">
+        <LibrarySidebar itemCount={items.length} />
+        <div className="app-main">
+          <div className="library-heading">
+            <h2>全部唱片</h2>
+            <span className="library-heading-meta">{visibleItems.length} 首</span>
+          </div>
+          <Board
+            items={visibleItems}
+            playingId={currentId}
+            playing={playing}
+            onToggle={(item) => void controls.toggle(item)}
+            onDelete={(item) => removeVideo(item.id)}
+            onRename={renameVideo}
+            onReorder={(from, to) => {
+              const fromId = visibleItems[from]?.id;
+              const toId = visibleItems[to]?.id;
+              if (!fromId || !toId) return;
+              const all = useVideoStore.getState().items;
+              reorder(
+                all.findIndex((item) => item.id === fromId),
+                all.findIndex((item) => item.id === toId),
+              );
+            }}
+          />
+        </div>
+      </div>
 
       <PlayerBar controls={controls} onDelete={removeVideo} />
 
