@@ -17,8 +17,8 @@ export const theme: ThemeConfig = {
   },
   components: {
     Modal: {
-      contentBg: "rgba(40,26,36,0.92)",
-      headerBg: "transparent",
+      contentBg: "#281a24",
+      headerBg: "#281a24",
     },
     Popconfirm: {
       colorBgElevated: "rgba(40,26,36,0.96)",
