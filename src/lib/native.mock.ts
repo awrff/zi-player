@@ -7,12 +7,10 @@ import { silentWavDataUri } from "./silentWav";
 export interface NativeMockControls {
   clipboard: string;
   hidden: boolean;
-  hotkeyHandler: (() => void) | null;
   showHandler: (() => void) | null;
   /** Fixture metadata keyed by video id; used by resolveVideo. */
   fixtures: Record<string, VideoMeta>;
   emitShow(): void;
-  fireHotkey(): void;
   reset(): void;
 }
 
@@ -53,20 +51,15 @@ function ensureControls(): NativeMockControls {
     window.__nativeMock = {
       clipboard: window.__preSetClipboard ?? "",
       hidden: false,
-      hotkeyHandler: null,
       showHandler: null,
       fixtures,
       emitShow() {
         window.__nativeMock?.showHandler?.();
       },
-      fireHotkey() {
-        window.__nativeMock?.hotkeyHandler?.();
-      },
       reset() {
         const controls = window.__nativeMock!;
         controls.clipboard = "";
         controls.hidden = false;
-        controls.hotkeyHandler = null;
         controls.showHandler = null;
       },
     };
@@ -110,21 +103,8 @@ export const mockNative: Native = {
     return ensureControls().clipboard;
   },
 
-  async registerGlobalShortcut(_shortcut: string, handler: () => void): Promise<() => void> {
-    ensureControls().hotkeyHandler = handler;
-    return () => {
-      if (window.__nativeMock) window.__nativeMock.hotkeyHandler = null;
-    };
-  },
-
   async hideWindow(): Promise<void> {
     ensureControls().hidden = true;
-  },
-
-  async showWindow(): Promise<void> {
-    const controls = ensureControls();
-    controls.hidden = false;
-    controls.showHandler?.();
   },
 
   onWindowShow(cb: () => void): () => void {

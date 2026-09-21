@@ -19,7 +19,7 @@ npm run tauri dev
 
 ## 技术栈
 
-- **外壳**：Tauri v2（Rust + WebView）—— 安装包约 21 MB、启动快、支持全局快捷键 / 托盘 / 剪贴板
+- **外壳**：Tauri v2（Rust + WebView）—— 安装包约 21 MB、启动快、支持托盘 / 剪贴板
 - **前端**：React 19 + TypeScript + Vite + Ant Design 6（Ubuntu 简约风 + 磨砂玻璃主题）
 - **状态**：Zustand（`persist` 持久化到 localStorage）
 - **解析/下载**：yt-dlp（Tauri sidecar，仅音频流）+ ffmpeg（Tauri sidecar，AAC → Vorbis 转码）
@@ -31,7 +31,7 @@ npm run tauri dev
 src/
   lib/          native 适配器、解析器、播放器、导入器
   store/        Zustand 视频管理 store
-  hooks/        usePlayer / useClipboardWatch / useGlobalShortcut
+  hooks/        usePlayer / useClipboardWatch
   components/   Board / Turntable / VinylDisc / PlayerBar / 弹窗
   styles/       Ubuntu 磨砂玻璃主题 + 全局样式
 src-tauri/
@@ -136,8 +136,8 @@ Linux 为 `deb/` / `appimage/`，macOS 为 `dmg/` / `macos/`）。
 - **链接解析**：识别 `bilibili.com/video/BV...`、`av...`、`b23.tv` 短链。
 - **唱片 board**：封面在唱片机上方（不遮挡整机）、唱片播放时旋转、名称在正下方。
 - **视频管理**：添加 / 删除 / 重命名 / 搜索过滤。
-- **剪贴板导入**：打开应用（或唤起窗口）时检测剪贴板中的 B 站链接并提示导入。
-- **全局快捷键**：`Ctrl+Alt+B` 从任意位置唤起应用；关闭窗口隐藏到托盘。
+- **剪贴板导入**：打开应用（或窗口获得焦点）时检测剪贴板中的 B 站链接并提示导入。
+- **托盘**：关闭窗口隐藏到托盘。
 - **响应式**：board 使用 `auto-fill/minmax` 网格，随窗口宽度自适应列数。
 
 ## 测试说明

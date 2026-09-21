@@ -5,7 +5,7 @@ import { useVideoStore } from "@/store/videoStore";
 
 /**
  * Watches the clipboard for a Bilibili URL. Checks once on mount (app open)
- * and again every time the window is shown/focused (e.g. after the hotkey).
+ * and again every time the window is shown/focused.
  */
 export function useClipboardWatch(onDetect: (url: string) => void): void {
   useEffect(() => {

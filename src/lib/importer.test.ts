@@ -9,9 +9,7 @@ vi.mock("./native", () => ({
     resolveVideo: h.resolveVideo,
     downloadAudio: vi.fn(async () => "mock://audio"),
     readClipboard: vi.fn(async () => ""),
-    registerGlobalShortcut: vi.fn(async () => () => {}),
     hideWindow: vi.fn(async () => {}),
-    showWindow: vi.fn(async () => {}),
     onWindowShow: vi.fn(() => () => {}),
   },
 }));

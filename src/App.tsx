@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { App as AntApp, Button, ConfigProvider, Input, Tooltip } from "antd";
+import { App as AntApp, Button, ConfigProvider, Input } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { theme } from "@/styles/theme";
 import { useVideoStore } from "@/store/videoStore";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useClipboardWatch } from "@/hooks/useClipboardWatch";
-import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
 import { Board } from "@/components/Board";
 import { LibrarySidebar } from "@/components/LibrarySidebar";
 import { PlayerBar } from "@/components/PlayerBar";
@@ -41,7 +40,6 @@ function BoardApp() {
       });
   }, [message]);
 
-  useGlobalShortcut();
   useClipboardWatch(setClipUrl);
 
   const q = query.trim().toLowerCase();
@@ -65,9 +63,6 @@ function BoardApp() {
           aria-label="search-input"
         />
         <div className="toolbar-spacer" />
-        <Tooltip title={`全局快捷键唤起应用（Ctrl+Alt+B），复制 B 站链接后打开应用即可自动导入`}>
-          <span style={{ color: "var(--text-dim)", fontSize: 12 }}>Ctrl+Alt+B 唤起</span>
-        </Tooltip>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
           添加
         </Button>

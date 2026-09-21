@@ -30,14 +30,8 @@ export interface Native {
   /** Read the current system clipboard as text. */
   readClipboard(): Promise<string>;
 
-  /** Register a global hotkey; returns an unregister function. */
-  registerGlobalShortcut(shortcut: string, handler: () => void): Promise<() => void>;
-
   /** Hide the window (used for the close-to-tray behaviour). */
   hideWindow(): Promise<void>;
-
-  /** Show and focus the window (used by the global hotkey). */
-  showWindow(): Promise<void>;
 
   /** Subscribe to window show/focus events; returns an unsubscribe function. */
   onWindowShow(cb: () => void): () => void;

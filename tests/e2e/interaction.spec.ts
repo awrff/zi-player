@@ -74,14 +74,3 @@ test("detects a clipboard link on app open", async ({ page }) => {
 
   await expect(page.getByRole("dialog")).toContainText("检测到剪贴板中的视频链接");
 });
-
-test("registers the global hotkey and summons the window", async ({ page }) => {
-  await gotoBoard(page, []);
-
-  const registered = await page.evaluate(() => typeof window.__nativeMock?.hotkeyHandler === "function");
-  expect(registered).toBe(true);
-
-  await page.evaluate(() => window.__nativeMock!.fireHotkey());
-  const hidden = await page.evaluate(() => window.__nativeMock!.hidden);
-  expect(hidden).toBe(false);
-});
