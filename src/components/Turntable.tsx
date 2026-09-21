@@ -62,7 +62,9 @@ export function Turntable({ item, playing, onToggle, onDelete, onRename }: Turnt
         </div>
 
         <div className="turntable-deck">
-          <div className="tonearm" />
+          <div className="tonearm" aria-hidden>
+            <span className="tonearm-head" />
+          </div>
           <VinylDisc spinning={playing} />
         </div>
 
