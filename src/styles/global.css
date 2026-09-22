@@ -282,10 +282,10 @@ body {
 
 .track-row {
   display: grid;
-  grid-template-columns: 36px 40px minmax(0, 1fr) 140px 88px;
+  grid-template-columns: 22px 40px minmax(0, 1fr) 140px 88px;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: 10px;
+  padding: 8px 10px 8px 4px;
   border-radius: 10px;
   cursor: pointer;
   color: var(--text);
@@ -314,6 +314,7 @@ body {
   font-size: 13px;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .track-row.is-playing .track-index {
@@ -1039,7 +1040,9 @@ body {
     margin-bottom: 0;
   }
   .track-row {
-    grid-template-columns: 28px 36px minmax(0, 1fr) 72px;
+    grid-template-columns: 20px 36px minmax(0, 1fr) 72px;
+    padding-left: 2px;
+    gap: 8px;
   }
   .track-uploader {
     display: none;
