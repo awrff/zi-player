@@ -36,9 +36,7 @@ jobs:
             patchelf \
             xdg-utils \
             libxdo-dev \
-            libssl-dev \
-            libgstreamer1.0-dev \
-            libgstreamer-plugins-base1.0-dev
+            libssl-dev
 
       - uses: actions/setup-node@v6
         with:

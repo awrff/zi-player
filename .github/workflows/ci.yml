@@ -57,9 +57,7 @@ jobs:
             librsvg2-dev \
             patchelf \
             libxdo-dev \
-            libssl-dev \
-            libgstreamer1.0-dev \
-            libgstreamer-plugins-base1.0-dev
+            libssl-dev
 
       - uses: dtolnay/rust-toolchain@stable
 
