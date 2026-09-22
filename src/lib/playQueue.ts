@@ -83,10 +83,14 @@ export function nextRepeatMode(current: RepeatMode): RepeatMode {
   return "off";
 }
 
+export function shuffleLabel(shuffle: boolean): string {
+  return shuffle ? "随机播放" : "打开随机";
+}
+
 export function repeatLabel(mode: RepeatMode): string {
   if (mode === "all") return "列表循环";
   if (mode === "one") return "单曲循环";
-  return "关闭循环";
+  return "打开列表循环";
 }
 
 export function skipRepeat(repeat: RepeatMode): RepeatMode {

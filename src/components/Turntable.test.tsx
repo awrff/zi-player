@@ -70,6 +70,29 @@ describe("Turntable", () => {
     expect(onToggle).toHaveBeenCalledWith(item);
   });
 
+  it("does not play when selection mode handles the click", () => {
+    const onToggle = vi.fn();
+    const onSelectClick = vi.fn(() => "select" as const);
+    render(
+      <Turntable
+        item={item}
+        playing={false}
+        onToggle={onToggle}
+        onRename={() => {}}
+        selection={{
+          selecting: true,
+          selectedIds: new Set([item.id]),
+          onSelectClick,
+          onSelectToggle: () => {},
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("turntable"));
+    expect(onSelectClick).toHaveBeenCalled();
+    expect(onToggle).not.toHaveBeenCalled();
+    expect(screen.getByTestId("turntable")).toHaveAttribute("data-selected");
+  });
+
   it("shows a play overlay that switches to pause while playing", () => {
     const { rerender } = render(
       <Turntable item={item} playing={false} onToggle={() => {}} onDelete={() => {}} onRename={() => {}} />,

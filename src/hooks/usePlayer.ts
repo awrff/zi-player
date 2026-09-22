@@ -26,6 +26,7 @@ export interface PlayerControls {
   canNext: boolean;
   toggle: (item: VideoItem) => Promise<void>;
   playFromList: (item: VideoItem, list: VideoItem[]) => Promise<void>;
+  playSelected: (list: VideoItem[]) => Promise<boolean>;
   playId: (id: string) => Promise<void>;
   playNext: () => Promise<void>;
   playPrev: () => Promise<void>;
@@ -218,6 +219,23 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     [currentId, setQueue, toggle],
   );
 
+  const playSelected = useCallback(
+    async (list: VideoItem[]) => {
+      const first = list.find((entry) => {
+        const latest = useVideoStore.getState().items.find((item) => item.id === entry.id) ?? entry;
+        return isPlayable(latest);
+      });
+      if (!first) return false;
+      setQueue(
+        list.map((entry) => entry.id),
+        first.id,
+      );
+      await playItem(first);
+      return true;
+    },
+    [playItem, setQueue],
+  );
+
   const playId = useCallback(
     async (id: string) => {
       const item = useVideoStore.getState().items.find((entry) => entry.id === id);
@@ -326,6 +344,7 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
     canNext,
     toggle,
     playFromList,
+    playSelected,
     playId,
     playNext,
     playPrev,

@@ -274,6 +274,58 @@ body {
   white-space: nowrap;
 }
 
+.library-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.library-heading-actions .batch-manage.ant-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 26px;
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--surface-border);
+}
+
+.library-heading-actions .batch-manage.ant-btn:hover {
+  color: var(--text);
+  background: var(--surface-strong);
+  border-color: rgba(233, 84, 32, 0.45);
+}
+
+.library-heading-actions .ant-segmented {
+  height: 28px;
+  padding: 2px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.library-heading-actions .ant-segmented .ant-segmented-item {
+  border-radius: 6px;
+  min-height: 24px;
+  line-height: 24px;
+}
+
+.library-heading-actions .ant-segmented .ant-segmented-item-label {
+  min-height: 24px;
+  line-height: 24px;
+  padding: 0 8px;
+}
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .track-list {
   display: flex;
   flex-direction: column;
@@ -296,6 +348,12 @@ body {
   cursor: default;
 }
 
+.track-row.is-selecting,
+.track-row.is-selecting.is-pending,
+.track-row.is-selecting.is-failed {
+  cursor: pointer;
+}
+
 .track-row.is-failed {
   cursor: pointer;
 }
@@ -307,6 +365,41 @@ body {
 .track-row.is-playing {
   color: var(--ub-orange);
   background: var(--surface-strong);
+}
+
+.track-row.is-selected {
+  background: rgba(233, 84, 32, 0.16);
+}
+
+.track-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 22px;
+}
+
+.track-check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.track-row:hover .track-check,
+.track-row.is-selecting .track-check,
+.track-row.is-selected .track-check {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.track-row:hover .track-index,
+.track-row.is-selecting .track-index,
+.track-row.is-selected .track-index {
+  opacity: 0;
 }
 
 .track-index {
@@ -436,8 +529,34 @@ body {
   box-shadow: 0 0 0 1px rgba(233, 84, 32, 0.35), var(--shadow);
 }
 
+.turntable.is-selected {
+  border-color: var(--ub-orange);
+  background: rgba(233, 84, 32, 0.14);
+}
+
+.turntable-check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.turntable:hover .turntable-check,
+.turntable.is-selecting .turntable-check,
+.turntable.is-selected .turntable-check {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .turntable.is-pending {
   cursor: default;
+}
+
+.turntable.is-selecting,
+.turntable.is-selecting.is-pending {
+  cursor: pointer;
 }
 
 .turntable.is-pending:hover {

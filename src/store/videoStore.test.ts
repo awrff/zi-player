@@ -187,4 +187,57 @@ describe("videoStore playlists", () => {
     useVideoStore.getState().removeVideo("BV1");
     expect(useVideoStore.getState().playlists.map((p) => p.songIds)).toEqual([[], []]);
   });
+
+  it("adds many songs to a playlist and skips duplicates", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    useVideoStore.getState().addVideo(meta("BV2"));
+    useVideoStore.getState().addVideo(meta("BV3"));
+    const playlist = useVideoStore.getState().createPlaylist("通勤")!;
+    useVideoStore.getState().addToPlaylist(playlist.id, "BV1");
+    expect(useVideoStore.getState().addManyToPlaylist(playlist.id, ["BV1", "BV2", "missing", "BV3"])).toEqual({
+      added: 2,
+      skipped: 2,
+    });
+    expect(useVideoStore.getState().playlists[0].songIds).toEqual(["BV1", "BV2", "BV3"]);
+  });
+
+  it("removes many songs from a playlist without deleting library items", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    useVideoStore.getState().addVideo(meta("BV2"));
+    const playlist = useVideoStore.getState().createPlaylist("通勤")!;
+    useVideoStore.getState().addManyToPlaylist(playlist.id, ["BV1", "BV2"]);
+    expect(useVideoStore.getState().removeManyFromPlaylist(playlist.id, ["BV1", "missing"])).toBe(1);
+    expect(useVideoStore.getState().playlists[0].songIds).toEqual(["BV2"]);
+    expect(useVideoStore.getState().items).toHaveLength(2);
+  });
+
+  it("removes many library items and stops playback when the current track is included", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    useVideoStore.getState().addVideo(meta("BV2"));
+    useVideoStore.getState().addVideo(meta("BV3"));
+    const playlist = useVideoStore.getState().createPlaylist("通勤")!;
+    useVideoStore.getState().addManyToPlaylist(playlist.id, ["BV1", "BV2", "BV3"]);
+    useVideoStore.getState().setQueue(["BV1", "BV2", "BV3"], "BV2");
+    useVideoStore.getState().setCurrent("BV2");
+    useVideoStore.getState().removeManyVideos(["BV1", "BV2"]);
+    expect(useVideoStore.getState().items.map((item) => item.id)).toEqual(["BV3"]);
+    expect(useVideoStore.getState().playlists[0].songIds).toEqual(["BV3"]);
+    expect(useVideoStore.getState().queueIds).toEqual(["BV3"]);
+    expect(useVideoStore.getState().currentId).toBeNull();
+    expect(useVideoStore.getState().playing).toBe(false);
+  });
+
+  it("appends unique songs to the queue and shuffle order", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    useVideoStore.getState().addVideo(meta("BV2"));
+    useVideoStore.getState().addVideo(meta("BV3"));
+    useVideoStore.getState().setShuffle(true);
+    useVideoStore.getState().setQueue(["BV1"], "BV1");
+    expect(useVideoStore.getState().addToQueue(["BV1", "BV2", "missing", "BV3"])).toEqual({
+      added: 2,
+      skipped: 2,
+    });
+    expect(useVideoStore.getState().queueIds).toEqual(["BV1", "BV2", "BV3"]);
+    expect(useVideoStore.getState().shuffleOrder).toEqual(["BV1", "BV2", "BV3"]);
+  });
 });

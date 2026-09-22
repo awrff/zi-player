@@ -32,6 +32,7 @@ function stub(partial: Partial<PlayerControls> = {}): PlayerControls {
     canNext: false,
     toggle: async () => {},
     playFromList: async () => {},
+    playSelected: async () => false,
     playId: async () => {},
     playNext: async () => {},
     playPrev: async () => {},

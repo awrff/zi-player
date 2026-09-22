@@ -1,15 +1,18 @@
-import { Dropdown, Progress } from "antd";
+import { Checkbox, Dropdown, Progress } from "antd";
 import { CheckCircleFilled, CloseCircleFilled } from "@ant-design/icons";
 import type { VideoItem } from "@/types";
 import { formatDuration } from "@/lib/format";
 import { importStatusLabel, isImportPending, isPlayable, normalizeImportStatus } from "@/lib/importStatus";
+import { selectModifiers } from "@/lib/selection";
 import { buildTrackMenu, type TrackMenuHandlers } from "./trackContextMenu";
+import type { TrackSelectionView } from "./trackSelection";
 
 interface TrackListProps extends Omit<TrackMenuHandlers, "onMoveUp" | "onMoveDown"> {
   items: VideoItem[];
   playingId: string | null;
   playing: boolean;
   onMove?: (item: VideoItem, dir: -1 | 1) => void;
+  selection?: TrackSelectionView;
 }
 
 export function TrackList({
@@ -17,6 +20,7 @@ export function TrackList({
   playingId,
   playing,
   onMove,
+  selection,
   ...handlers
 }: TrackListProps) {
   return (
@@ -27,11 +31,15 @@ export function TrackList({
         const playable = isPlayable(item);
         const pending = isImportPending(status);
         const failed = status === "failed";
-        const menu = buildTrackMenu(item, isPlaying, {
-          ...handlers,
-          onMoveUp: onMove && index > 0 ? (target) => onMove(target, -1) : undefined,
-          onMoveDown: onMove && index < items.length - 1 ? (target) => onMove(target, 1) : undefined,
-        });
+        const selected = Boolean(selection?.selectedIds.has(item.id));
+        const menu =
+          selected && selection?.batchMenu
+            ? selection.batchMenu
+            : buildTrackMenu(item, isPlaying, {
+                ...handlers,
+                onMoveUp: onMove && index > 0 ? (target) => onMove(target, -1) : undefined,
+                onMoveDown: onMove && index < items.length - 1 ? (target) => onMove(target, 1) : undefined,
+              });
 
         return (
           <Dropdown key={item.id} trigger={["contextMenu"]} menu={menu}>
@@ -41,27 +49,54 @@ export function TrackList({
                 isPlaying ? "is-playing" : "",
                 pending ? "is-pending" : "",
                 failed ? "is-failed" : "",
+                selection?.selecting ? "is-selecting" : "",
+                selected ? "is-selected" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
               data-testid="track-row"
               data-id={item.id}
               data-playing={isPlaying || undefined}
+              data-selected={selected || undefined}
               data-import-status={status}
               data-ready={playable || undefined}
               role="listitem"
               tabIndex={0}
-              aria-disabled={(!playable && !failed) || undefined}
-              onClick={() => (failed ? handlers.onRetry?.(item) : handlers.onToggle(item))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  if (failed) handlers.onRetry?.(item);
-                  else handlers.onToggle(item);
+              aria-disabled={(!playable && !failed && !selection) || undefined}
+              onClick={(event) => {
+                if (selection) {
+                  const action = selection.onSelectClick(item, selectModifiers(event));
+                  if (action === "select") return;
                 }
+                if (failed) handlers.onRetry?.(item);
+                else handlers.onToggle(item);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                if (selection?.selecting) {
+                  selection.onSelectToggle(item);
+                  return;
+                }
+                if (failed) handlers.onRetry?.(item);
+                else handlers.onToggle(item);
               }}
             >
-              <span className="track-index">{index + 1}</span>
+              <span className="track-select">
+                <span className="track-index">{index + 1}</span>
+                {selection ? (
+                  <span
+                    className="track-check"
+                    data-testid="track-check"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selection.onSelectToggle(item);
+                    }}
+                  >
+                    <Checkbox checked={selected} tabIndex={-1} />
+                  </span>
+                ) : null}
+              </span>
               <span className="track-cover-wrap">
                 {item.cover ? (
                   <img className="track-cover" src={item.cover} alt="" />

@@ -6,7 +6,9 @@ import {
   playOrder,
   prevId,
   prevPlayableId,
+  repeatLabel,
   shouldRestartOnPrev,
+  shuffleLabel,
   shuffledOrder,
   skipRepeat,
 } from "./playQueue";
@@ -75,6 +77,14 @@ describe("repeat helpers", () => {
     expect(nextRepeatMode("off")).toBe("all");
     expect(nextRepeatMode("all")).toBe("one");
     expect(nextRepeatMode("one")).toBe("off");
+  });
+
+  it("labels the current mode, and the turn-on action when off", () => {
+    expect(shuffleLabel(false)).toBe("打开随机");
+    expect(shuffleLabel(true)).toBe("随机播放");
+    expect(repeatLabel("off")).toBe("打开列表循环");
+    expect(repeatLabel("all")).toBe("列表循环");
+    expect(repeatLabel("one")).toBe("单曲循环");
   });
 
   it("treats single-track repeat as off when skipping", () => {

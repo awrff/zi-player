@@ -292,6 +292,39 @@ describe("usePlayer queue", () => {
     expect(h.play).not.toHaveBeenCalled();
   });
 
+  it("replaces the queue when playing a selected list that includes the current track", async () => {
+    readyToPlay();
+    const cached = { ...ready };
+    const cachedB = { ...itemB, cachePath: "data:audio/wav;base64,yyy", importStatus: "ready" as const };
+    useVideoStore.setState({
+      items: [cached, cachedB],
+      currentId: cached.id,
+      playing: true,
+      queueIds: [cached.id],
+    });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await expect(result.current.playSelected([cached, cachedB])).resolves.toBe(true);
+    });
+
+    expect(useVideoStore.getState().queueIds).toEqual([cached.id, cachedB.id]);
+    expect(h.play).toHaveBeenCalledWith("data:audio/wav;base64,xxx");
+  });
+
+  it("returns false when no selected song is playable", async () => {
+    const pending = { ...item, importStatus: "transcoding" as const };
+    useVideoStore.setState({ items: [pending] });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await expect(result.current.playSelected([pending])).resolves.toBe(false);
+    });
+
+    expect(useVideoStore.getState().queueIds).toEqual([]);
+    expect(h.play).not.toHaveBeenCalled();
+  });
+
   it("skips an unplayable next track", async () => {
     readyToPlay();
     const cached = { ...ready };
