@@ -75,7 +75,7 @@ describe("importErrorMessage", () => {
       }),
     ).toBe(IMPORT_ERROR_COPY.unavailable);
 
-    expect(importErrorMessage({ ok: false, reason: "not-bilibili" })).toMatch(/B 站/);
+    expect(importErrorMessage({ ok: false, reason: "unsupported-url" })).toMatch(/B 站/);
     expect(importErrorMessage({ ok: false, reason: "resolve-failed" })).toMatch(/[\u4e00-\u9fff]/);
   });
 });

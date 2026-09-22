@@ -39,7 +39,7 @@ pub fn run() {
                         .expect("missing window icon")
                         .clone(),
                 )
-                .tooltip("BiliBoard")
+                .tooltip("ZI Player")
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main_window(app),

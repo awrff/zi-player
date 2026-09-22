@@ -39,12 +39,12 @@ describe("importVideo", () => {
     expect(result).toEqual({ ok: false, reason: "not-a-url" });
   });
 
-  it("rejects non-bilibili URLs", async () => {
+  it("rejects unsupported URLs", async () => {
     const result = await importVideo("https://www.youtube.com/watch?v=x");
-    expect(result).toEqual({ ok: false, reason: "not-bilibili" });
+    expect(result).toEqual({ ok: false, reason: "unsupported-url" });
   });
 
-  it("resolves and adds a bilibili video", async () => {
+  it("resolves and adds a video", async () => {
     h.resolveVideo.mockResolvedValue(meta("BV1xx411c7mD"));
     const result = await importVideo("https://www.bilibili.com/video/BV1xx411c7mD");
     expect(result.ok).toBe(true);

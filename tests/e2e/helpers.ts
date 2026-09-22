@@ -22,7 +22,7 @@ export async function gotoBoard(page: Page, items: SeedItem[] = []): Promise<voi
 
   await page.addInitScript(
     (records) => {
-      localStorage.setItem("bili-board", JSON.stringify({ state: { items: records }, version: 0 }));
+      localStorage.setItem("zi-player", JSON.stringify({ state: { items: records }, version: 0 }));
     },
     seed,
   );

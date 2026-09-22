@@ -66,7 +66,7 @@ export function importErrorMessage(
   switch (result.reason) {
     case "not-a-url":
       return source === "clipboard" ? "剪贴板内容不是有效链接" : "请输入 B 站视频链接";
-    case "not-bilibili":
+    case "unsupported-url":
       return source === "clipboard"
         ? "剪贴板内容不是 B 站视频链接"
         : "请输入有效的 B 站视频链接（BV / av / b23.tv）";

@@ -212,7 +212,7 @@ export const useVideoStore = create<VideoState>()(
       setPlaying: (playing) => set({ playing }),
     }),
     {
-      name: "bili-board",
+      name: "zi-player",
       partialize: (state) => ({
         items: state.items,
         playlists: state.playlists,

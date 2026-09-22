@@ -108,7 +108,7 @@ function BoardApp() {
     <div className="app-shell">
       <header className="app-toolbar">
         <h1 className="app-title">
-          Bili<span className="accent">Board</span>
+          ZI <span className="accent">Player</span>
         </h1>
         <Input
           allowClear

@@ -12,7 +12,7 @@ import { realNative } from "./native.real";
 export interface Native {
   readonly isTauri: boolean;
 
-  /** Resolve video metadata (title / cover / duration ...) for a Bilibili URL. */
+  /** Resolve video metadata (title / cover / duration ...) for a video URL. */
   resolveVideo(url: string): Promise<VideoMeta>;
 
   /** Download the best-audio stream locally and return its absolute file path. */

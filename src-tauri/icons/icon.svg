@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- BiliBoard mark: vinyl on aubergine, matching the Ubuntu-orange board theme.
+  <!-- ZI Player mark: vinyl on aubergine, matching the Ubuntu-orange board theme.
        Regenerate: npx tauri icon src-tauri/icons/icon.svg -o src-tauri/icons -->
   <rect width="1024" height="1024" fill="#1b1018"/>
   <circle cx="512" cy="512" r="408" fill="#0b0b0d"/>

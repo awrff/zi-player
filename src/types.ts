@@ -1,6 +1,6 @@
-/** Metadata resolved for a Bilibili video. */
+/** Metadata resolved for a video. */
 export interface VideoMeta {
-  /** Bilibili video id, e.g. "BV1xx411c7mD" (used as the stable key). */
+  /** Video id, e.g. "BV1xx411c7mD" (used as the stable key). */
   id: string;
   /** Normalized webpage URL. */
   url: string;
@@ -41,7 +41,7 @@ export type RepeatMode = "off" | "all" | "one";
 
 export type ImportFailReason =
   | "not-a-url"
-  | "not-bilibili"
+  | "unsupported-url"
   | "duplicate"
   | "network"
   | "unavailable"

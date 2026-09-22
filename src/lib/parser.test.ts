@@ -1,67 +1,67 @@
 import { describe, expect, it } from "vitest";
 import {
-  extractBiliId,
-  findBiliUrlInText,
-  isBilibiliUrl,
+  extractVideoId,
+  findVideoUrlInText,
+  isVideoUrl,
   looksLikeUrl,
-  normalizeBiliUrl,
+  normalizeVideoUrl,
 } from "./parser";
 
-describe("isBilibiliUrl", () => {
-  it("accepts bilibili.com BV links", () => {
-    expect(isBilibiliUrl("https://www.bilibili.com/video/BV1xx411c7mD")).toBe(true);
+describe("isVideoUrl", () => {
+  it("accepts video page BV links", () => {
+    expect(isVideoUrl("https://www.bilibili.com/video/BV1xx411c7mD")).toBe(true);
   });
 
-  it("accepts bilibili.com av links", () => {
-    expect(isBilibiliUrl("https://www.bilibili.com/video/av170001")).toBe(true);
+  it("accepts video page av links", () => {
+    expect(isVideoUrl("https://www.bilibili.com/video/av170001")).toBe(true);
   });
 
   it("accepts links with query strings", () => {
-    expect(isBilibiliUrl("https://www.bilibili.com/video/BV1xx411c7mD?p=2&t=30")).toBe(true);
+    expect(isVideoUrl("https://www.bilibili.com/video/BV1xx411c7mD?p=2&t=30")).toBe(true);
   });
 
   it("accepts b23.tv short links", () => {
-    expect(isBilibiliUrl("https://b23.tv/AbCdEf")).toBe(true);
+    expect(isVideoUrl("https://b23.tv/AbCdEf")).toBe(true);
   });
 
-  it("rejects non-bilibili URLs", () => {
-    expect(isBilibiliUrl("https://www.youtube.com/watch?v=abc")).toBe(false);
-    expect(isBilibiliUrl("https://www.bilibili.com/read/cv123")).toBe(false);
+  it("rejects unsupported URLs", () => {
+    expect(isVideoUrl("https://www.youtube.com/watch?v=abc")).toBe(false);
+    expect(isVideoUrl("https://www.bilibili.com/read/cv123")).toBe(false);
   });
 
   it("rejects non-URL text", () => {
-    expect(isBilibiliUrl("hello world")).toBe(false);
-    expect(isBilibiliUrl("")).toBe(false);
+    expect(isVideoUrl("hello world")).toBe(false);
+    expect(isVideoUrl("")).toBe(false);
   });
 });
 
-describe("extractBiliId", () => {
+describe("extractVideoId", () => {
   it("extracts the BV id", () => {
-    expect(extractBiliId("https://www.bilibili.com/video/BV1xx411c7mD")).toBe("BV1xx411c7mD");
+    expect(extractVideoId("https://www.bilibili.com/video/BV1xx411c7mD")).toBe("BV1xx411c7mD");
   });
 
   it("extracts the av id", () => {
-    expect(extractBiliId("https://www.bilibili.com/video/av170001?t=10")).toBe("av170001");
+    expect(extractVideoId("https://www.bilibili.com/video/av170001?t=10")).toBe("av170001");
   });
 
   it("returns the short code for b23.tv", () => {
-    expect(extractBiliId("https://b23.tv/AbCdEf")).toBe("AbCdEf");
+    expect(extractVideoId("https://b23.tv/AbCdEf")).toBe("AbCdEf");
   });
 
-  it("returns null for non-bilibili text", () => {
-    expect(extractBiliId("nope")).toBeNull();
+  it("returns null for unsupported text", () => {
+    expect(extractVideoId("nope")).toBeNull();
   });
 });
 
-describe("normalizeBiliUrl", () => {
+describe("normalizeVideoUrl", () => {
   it("normalizes a full video URL", () => {
-    expect(normalizeBiliUrl("https://www.bilibili.com/video/BV1xx411c7mD?p=3")).toBe(
+    expect(normalizeVideoUrl("https://www.bilibili.com/video/BV1xx411c7mD?p=3")).toBe(
       "https://www.bilibili.com/video/BV1xx411c7mD",
     );
   });
 
-  it("returns null for non-bilibili URLs", () => {
-    expect(normalizeBiliUrl("https://example.com/x")).toBeNull();
+  it("returns null for unsupported URLs", () => {
+    expect(normalizeVideoUrl("https://example.com/x")).toBeNull();
   });
 });
 
@@ -76,18 +76,18 @@ describe("looksLikeUrl", () => {
   });
 });
 
-describe("findBiliUrlInText", () => {
-  it("finds a bilibili URL embedded in text", () => {
+describe("findVideoUrlInText", () => {
+  it("finds a video URL embedded in text", () => {
     const text = "看这个 https://www.bilibili.com/video/BV1xx411c7mD 很赞";
-    expect(findBiliUrlInText(text)).toBe("https://www.bilibili.com/video/BV1xx411c7mD");
+    expect(findVideoUrlInText(text)).toBe("https://www.bilibili.com/video/BV1xx411c7mD");
   });
 
   it("strips trailing punctuation", () => {
     const text = "链接：https://b23.tv/AbCdEf。";
-    expect(findBiliUrlInText(text)).toBe("https://b23.tv/AbCdEf");
+    expect(findVideoUrlInText(text)).toBe("https://b23.tv/AbCdEf");
   });
 
-  it("ignores non-bilibili URLs in text", () => {
-    expect(findBiliUrlInText("see https://example.com and more")).toBeNull();
+  it("ignores unsupported URLs in text", () => {
+    expect(findVideoUrlInText("see https://example.com and more")).toBeNull();
   });
 });

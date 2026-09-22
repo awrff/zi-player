@@ -85,7 +85,7 @@ pub async fn check_sidecars(app: AppHandle) -> Result<Vec<String>, String> {
     Ok(missing)
 }
 
-/// Resolve metadata for a Bilibili URL via `yt-dlp -J`.
+/// Resolve metadata for a video URL via `yt-dlp -J`.
 #[tauri::command]
 pub async fn resolve_video(app: AppHandle, url: String) -> Result<VideoMeta, String> {
     ensure_sidecars(&app, &["yt-dlp"]).await?;
@@ -168,7 +168,7 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
 }
 
 /// Download the cover thumbnail locally and return its absolute path.
-/// yt-dlp supplies the Referer/User-Agent headers Bilibili's image CDN requires,
+/// yt-dlp supplies the Referer/User-Agent headers the image CDN requires,
 /// so the image is cached here instead of being hot-linked by the WebView.
 #[tauri::command]
 pub async fn fetch_cover(app: AppHandle, id: String, url: String) -> Result<String, String> {
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn find_playable_ignores_partial_tmp() {
-        let dir = std::env::temp_dir().join("bilibili-board-ogg-tmp");
+        let dir = std::env::temp_dir().join("zi-player-ogg-tmp");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("BV123.tmp.ogg"), b"partial").unwrap();
@@ -537,7 +537,7 @@ mod tests {
 
     #[test]
     fn path_within_rejects_traversal_and_outside_paths() {
-        let root = std::env::temp_dir().join("bilibili-board-test-root");
+        let root = std::env::temp_dir().join("zi-player-test-root");
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("audio")).unwrap();
 
@@ -545,12 +545,12 @@ mod tests {
         std::fs::write(&inside, b"x").unwrap();
         assert!(path_within(&root, &inside));
 
-        let outside = root.parent().unwrap().join("bilibili-board-test-outside");
+        let outside = root.parent().unwrap().join("zi-player-test-outside");
         std::fs::write(&outside, b"x").unwrap();
         assert!(!path_within(&root, &outside));
 
         // `..` traversal must not escape the root.
-        let traversal = root.join("..").join("bilibili-board-test-outside");
+        let traversal = root.join("..").join("zi-player-test-outside");
         assert!(!path_within(&root, &traversal));
 
         let _ = std::fs::remove_dir_all(&root);

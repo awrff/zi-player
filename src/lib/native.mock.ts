@@ -1,6 +1,6 @@
 import type { Native } from "./native";
 import type { VideoMeta } from "@/types";
-import { extractBiliId } from "./parser";
+import { extractVideoId } from "./parser";
 import { silentWavDataUri } from "./silentWav";
 
 /** Control surface exposed to Playwright via `window.__nativeMock`. */
@@ -72,8 +72,8 @@ export const mockNative: Native = {
 
   async resolveVideo(url: string): Promise<VideoMeta> {
     const controls = ensureControls();
-    const id = extractBiliId(url);
-    if (!id) throw new Error(`Not a Bilibili URL: ${url}`);
+    const id = extractVideoId(url);
+    if (!id) throw new Error(`Not a supported video URL: ${url}`);
     const fixture = controls.fixtures[id] ?? makeFixture(id, Object.keys(controls.fixtures).length + 1);
     // Small artificial delay so loading states are observable in tests.
     await new Promise((r) => setTimeout(r, 50));

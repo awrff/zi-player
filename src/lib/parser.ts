@@ -1,5 +1,5 @@
 /**
- * Bilibili URL parsing and validation.
+ * Video URL parsing and validation.
  *
  * Supported forms:
  *  - https://www.bilibili.com/video/BV1xx411c7mD
@@ -8,23 +8,23 @@
  *  - with query strings / trailing junk: ?p=2&t=30, etc.
  */
 
-const BILI_HOST = /(^|\.)bilibili\.com$/i;
+const VIDEO_HOST = /(^|\.)bilibili\.com$/i;
 
-/** Matches bilibili.com/video/BV... or bilibili.com/video/av... */
+/** Matches host/video/BV... or host/video/av... */
 const VIDEO_PATH_RE = /^\/video\/(BV[0-9A-Za-z]{10}|av\d+)/i;
 
 /** Matches a b23.tv short link. */
 const SHORT_LINK_RE = /^\/[0-9A-Za-z]+$/;
 
-export interface ParsedBili {
+export interface ParsedVideo {
   /** Canonical id: "BV1xx..." or "av123". */
   id: string;
   /** Canonical webpage URL. */
   url: string;
 }
 
-/** Normalize a URL object + return the video id if it is a bilibili video page. */
-function parseBiliUrl(raw: string): ParsedBili | null {
+/** Normalize a URL object + return the video id if it is a supported video page. */
+function parseVideoUrl(raw: string): ParsedVideo | null {
   let url: URL;
   try {
     url = new URL(raw.trim());
@@ -36,12 +36,12 @@ function parseBiliUrl(raw: string): ParsedBili | null {
     return null;
   }
 
-  // b23.tv short link -> redirect to bilibili.com video page.
+  // b23.tv short link -> redirect to the video page.
   if (url.hostname.toLowerCase() === "b23.tv" && SHORT_LINK_RE.test(url.pathname)) {
     return { id: url.pathname.slice(1), url: `https://b23.tv${url.pathname}` };
   }
 
-  if (!BILI_HOST.test(url.hostname)) {
+  if (!VIDEO_HOST.test(url.hostname)) {
     return null;
   }
 
@@ -65,30 +65,30 @@ export function looksLikeUrl(text: string): boolean {
   }
 }
 
-/** True when the text is a Bilibili video URL (video page or b23.tv short link). */
-export function isBilibiliUrl(text: string): boolean {
-  return parseBiliUrl(text) !== null;
+/** True when the text is a supported video URL (video page or b23.tv short link). */
+export function isVideoUrl(text: string): boolean {
+  return parseVideoUrl(text) !== null;
 }
 
-/** Extract the canonical Bilibili video id (e.g. "BV1xx411c7mD") or null. */
-export function extractBiliId(text: string): string | null {
-  return parseBiliUrl(text)?.id ?? null;
+/** Extract the canonical video id (e.g. "BV1xx411c7mD") or null. */
+export function extractVideoId(text: string): string | null {
+  return parseVideoUrl(text)?.id ?? null;
 }
 
-/** Extract a normalized Bilibili video URL, or null when not recognized. */
-export function normalizeBiliUrl(text: string): string | null {
-  return parseBiliUrl(text)?.url ?? null;
+/** Extract a normalized video URL, or null when not recognized. */
+export function normalizeVideoUrl(text: string): string | null {
+  return parseVideoUrl(text)?.url ?? null;
 }
 
-/** Find the first Bilibili URL embedded anywhere in a block of text. */
-export function findBiliUrlInText(text: string): string | null {
+/** Find the first supported video URL embedded anywhere in a block of text. */
+export function findVideoUrlInText(text: string): string | null {
   const candidate = text.match(/https?:\/\/[^\s"'<>，。！？【】（）]+/gi);
   if (!candidate) return null;
 
   for (const raw of candidate) {
     const cleaned = raw.replace(/[),.;:!?]+$/, "");
-    if (isBilibiliUrl(cleaned)) {
-      return normalizeBiliUrl(cleaned);
+    if (isVideoUrl(cleaned)) {
+      return normalizeVideoUrl(cleaned);
     }
   }
   return null;

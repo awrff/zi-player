@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { native } from "@/lib/native";
-import { extractBiliId, findBiliUrlInText } from "@/lib/parser";
+import { extractVideoId, findVideoUrlInText } from "@/lib/parser";
 import { useVideoStore } from "@/store/videoStore";
 
 /**
- * Watches the clipboard for a Bilibili URL. Checks once on mount (app open)
+ * Watches the clipboard for a video URL. Checks once on mount (app open)
  * and again every time the window is shown/focused.
  */
 export function useClipboardWatch(onDetect: (url: string) => void): void {
@@ -15,9 +15,9 @@ export function useClipboardWatch(onDetect: (url: string) => void): void {
       try {
         const text = await native.readClipboard();
         if (disposed) return;
-        const url = findBiliUrlInText(text);
+        const url = findVideoUrlInText(text);
         if (!url) return;
-        const id = extractBiliId(url);
+        const id = extractVideoId(url);
         if (id && !useVideoStore.getState().has(id)) {
           onDetect(url);
         }

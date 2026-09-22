@@ -205,7 +205,7 @@ mod tests {
         use std::net::TcpStream;
         use std::time::Duration;
 
-        let root = std::env::temp_dir().join("bilibili-board-http-root");
+        let root = std::env::temp_dir().join("zi-player-http-root");
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join("test.ogg"), vec![b'a'; 100]).unwrap();

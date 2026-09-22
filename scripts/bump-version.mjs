@@ -28,7 +28,7 @@ rewrite("src-tauri/tauri.conf.json", (s) =>
 );
 rewrite("src-tauri/Cargo.toml", (s) => s.replace(/^version = "[^"]+"/m, `version = "${version}"`));
 rewrite("src-tauri/Cargo.lock", (s) =>
-  s.replace(/name = "bilibili-board"\nversion = "[^"]+"/, `name = "bilibili-board"\nversion = "${version}"`),
+  s.replace(/name = "zi-player"\nversion = "[^"]+"/, `name = "zi-player"\nversion = "${version}"`),
 );
 
 console.log(`bumped version to ${version}`);

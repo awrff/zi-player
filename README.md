@@ -1,4 +1,4 @@
-# BiliBoard
+# ZI Player
 
 一个跨平台桌面应用：解析 B 站视频链接，把每个视频渲染成一张会旋转的黑胶唱片
 （封面 + 唱片 + 名称）放在磨砂玻璃 board 上，并以纯音频方式播放。
@@ -145,20 +145,20 @@ Linux 为 `deb/` / `appimage/`）。CI Release 只打这两端。
 本地 `npm run tauri build` 同样会签 updater 产物，需要先注入私钥（不要把密码写进仓库）：
 
 ```powershell
-$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\bilibili-board.key" -Raw
+$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\zi-player.key" -Raw
 $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "your-key-password"
 npm run tauri build
 ```
 
 GitHub Actions secrets（仓库 Settings → Secrets）：
 
-- `TAURI_SIGNING_PRIVATE_KEY`：`~/.tauri/bilibili-board.key` 的**文件内容**
+- `TAURI_SIGNING_PRIVATE_KEY`：`~/.tauri/zi-player.key` 的**文件内容**
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`：生成密钥时的密码
 
 Workflow 权限需要 **Read and write**，否则建不了 Release。
 
 自更新 endpoint 是  
-`https://github.com/awrff/bilibili-board/releases/latest/download/latest.json`。  
+`https://github.com/awrff/zi-player/releases/latest/download/latest.json`。  
 仓库保持私有时，已安装客户端拉不到资产，检查失败会静默忽略；公开仓库后即可用。
 
 ## CI

@@ -9,7 +9,7 @@ interface ClipboardImportPromptProps {
   onClose: () => void;
 }
 
-/** Shown when a Bilibili URL is detected in the clipboard on app open/show. */
+/** Shown when a video URL is detected in the clipboard on app open/show. */
 export function ClipboardImportPrompt({ url, onClose }: ClipboardImportPromptProps) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
