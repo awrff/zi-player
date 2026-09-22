@@ -1,7 +1,6 @@
 import { Button, Dropdown } from "antd";
 import {
   CheckSquareOutlined,
-  CloseOutlined,
   DeleteOutlined,
   FolderAddOutlined,
   PlayCircleOutlined,
@@ -49,7 +48,13 @@ export function BatchActionBar({
 }: BatchActionBarProps) {
   if (!managing) {
     return (
-      <Button data-testid="batch-manage" icon={<CheckSquareOutlined />} onClick={onEnter}>
+      <Button
+        data-testid="batch-manage"
+        className="batch-manage"
+        size="small"
+        icon={<CheckSquareOutlined />}
+        onClick={onEnter}
+      >
         管理
       </Button>
     );
@@ -93,8 +98,8 @@ export function BatchActionBar({
       <Button size="small" danger icon={<DeleteOutlined />} disabled={none} onClick={onDelete}>
         删除
       </Button>
-      <Button size="small" type="primary" icon={<CloseOutlined />} data-testid="batch-done" onClick={onExit}>
-        完成
+      <Button size="small" data-testid="batch-cancel" onClick={onExit}>
+        取消
       </Button>
     </div>
   );

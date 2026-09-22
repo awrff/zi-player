@@ -279,7 +279,44 @@ body {
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
+}
+
+.library-heading-actions .batch-manage.ant-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 26px;
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--surface-border);
+}
+
+.library-heading-actions .batch-manage.ant-btn:hover {
+  color: var(--text);
+  background: var(--surface-strong);
+  border-color: rgba(233, 84, 32, 0.45);
+}
+
+.library-heading-actions .ant-segmented {
+  height: 28px;
+  padding: 2px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.library-heading-actions .ant-segmented .ant-segmented-item {
+  border-radius: 6px;
+  min-height: 24px;
+  line-height: 24px;
+}
+
+.library-heading-actions .ant-segmented .ant-segmented-item-label {
+  min-height: 24px;
+  line-height: 24px;
+  padding: 0 8px;
 }
 
 .batch-bar {
