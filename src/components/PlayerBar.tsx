@@ -10,7 +10,7 @@ import {
   UnorderedListOutlined,
 } from "@ant-design/icons";
 import { formatDuration } from "@/lib/format";
-import { repeatLabel } from "@/lib/playQueue";
+import { repeatLabel, shuffleLabel } from "@/lib/playQueue";
 import { PREPARING_HINT, type PlayerControls } from "@/hooks/usePlayer";
 import { PlayQueue } from "./PlayQueue";
 
@@ -107,7 +107,7 @@ export function PlayerBar({ controls }: { controls: PlayerControls }) {
 
       <div className="player-center">
         <div className="player-transport">
-          <Tooltip title={shuffle ? "关闭随机" : "随机播放"}>
+          <Tooltip title={shuffleLabel(shuffle)}>
             <Button
               type="text"
               shape="circle"
