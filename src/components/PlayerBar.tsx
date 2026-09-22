@@ -201,6 +201,7 @@ export function PlayerBar({ controls }: { controls: PlayerControls }) {
             step={0.01}
             value={volume}
             onChange={(v) => setVolume(v as number)}
+            tooltip={{ formatter: (v) => `${Math.round(((v ?? 0) as number) * 100)}%` }}
             style={{ width: 88 }}
           />
         </div>
