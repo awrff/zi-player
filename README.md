@@ -133,16 +133,14 @@ Linux 为 `deb/` / `appimage/`）。CI Release 只打这两端。
 
 ## 发版
 
-版本号写在四处，必须一起改：`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`（以及 `Cargo.lock` 里本包那一行）。
+人只改根目录 `VERSION`（`X.Y`，现在是 `0.3`）。补丁号 Z 由最新 `v*` tag 自动加。合进 `master` 会跑 Release：Check → 算号 → 打 NSIS / AppImage / .deb，并挂 `latest.json` 与 `SHA256SUMS`。
 
-```bash
-npm run version:bump -- 0.2.1
-# 更新 CHANGELOG.md 后提交
-git tag -a v0.2.1 -m "v0.2.1"
-git push origin v0.2.1
-```
+- 日常：合 `master` → 自动下一正式号 `v0.3.Z+1`（当前尚无正式 `v0.3.*` 时是 `v0.3.0`）
+- 要 `0.4.0`：把 `VERSION` 改成 `0.4` 再合 `master`
+- 从 `develop` 出包：Actions → Release → Run workflow → 选 `develop` → `v0.3.Z-rc.N`（不占用正式 Z；GitHub 标为 prerelease）
+- 不要手推 tag / 在网页上建 Release 来出包（不会触发打包）
 
-推送 `v*` tag 会触发 `.github/workflows/release.yml`：Windows NSIS + Linux deb/AppImage，并生成 updater 用的 `latest.json` 与 `.sig`。已有 tag 可在 Actions 里手动跑 `Release`（`workflow_dispatch`）。
+`VERSION` 不能低于已发布的正式 `X.Y`。`*-rc.*` tag 不参与正式 Z 计数。`chore: release …` 的 push 只跑 Check，不再加号。失败后 Re-run 会复用已打的 tag。
 
 本地 `npm run tauri build` 同样会签 updater 产物，需要先注入私钥（不要把密码写进仓库）：
 
@@ -165,12 +163,11 @@ Workflow 权限需要 **Read and write**，否则建不了 Release。
 
 ## CI
 
-`.github/workflows/ci.yml` 在 `master` / `develop` 的 push 与 PR 上跑：
+三个 workflow：`Check`（可复用）、`CI`、`Release`。
 
-- Node **22**（见 `.nvmrc`，`npm ci`，不升依赖）
-- Vitest + Playwright
-- sidecar 脚本自检
-- Ubuntu 22.04 上 `cargo test --locked`（会先拉 linux sidecar）
+- PR、push `develop`：跑 **CI** → Check（Linux + Windows）
+- push `master`：跑 **Release**（先 Check，再出包），不单独跑 CI
+- Check：Node **22** + `npm ci` + Vitest；Linux 另跑 Playwright 与 sidecar 自检；两端都 `cargo test --locked`
 
 ## 功能
 

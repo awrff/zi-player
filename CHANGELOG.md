@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- GitHub Actions CI (frontend unit/e2e + Rust tests) and tag-triggered Release packaging for Windows NSIS and Linux deb/AppImage
+- GitHub Actions Check / CI / Release：合 `master` 按 `VERSION` 自动打补丁版；Windows NSIS + Linux deb/AppImage + `latest.json` + `SHA256SUMS`
 - In-app updater (signed artifacts + `latest.json`). Private repositories cannot serve update assets until the repo is public
-- `npm run version:bump -- <semver>` to keep `package.json`, lockfile, `tauri.conf.json`, and Cargo versions in sync
+- `VERSION`（`X.Y`）与 `scripts/next-version.mjs` 计算下一号；develop 发 `vX.Y.Z-rc.N`（不计入正式 Z）
 
 ## [0.2.0] - 2026-09-21
 

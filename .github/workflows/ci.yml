@@ -1,80 +1,15 @@
 name: CI
 
 on:
-  push:
-    branches: [master, develop]
   pull_request:
     branches: [master, develop]
+  push:
+    branches: [develop]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  frontend:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npx tsc --noEmit
-
-      - name: Unit tests
-        run: npm test
-
-      - name: Sidecar script checks
-        run: |
-          bash scripts/check-sidecars.sh
-          bash scripts/fetch-binaries.sh --self-test
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: E2E tests
-        run: npm run test:e2e
-
-  rust:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libxdo-dev \
-            libssl-dev
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./src-tauri -> target"
-
-      - uses: actions/cache@v4
-        with:
-          path: src-tauri/binaries
-          key: sidecars-${{ runner.os }}-${{ hashFiles('scripts/fetch-binaries.sh') }}
-
-      - name: Fetch sidecars
-        run: |
-          if ! bash scripts/fetch-binaries.sh --check; then
-            bash scripts/fetch-binaries.sh
-          fi
-
-      - name: Cargo test
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+  check:
+    uses: ./.github/workflows/check.yml
