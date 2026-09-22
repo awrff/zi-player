@@ -6,6 +6,7 @@ import {
   playOrder,
   prevId,
   prevPlayableId,
+  repeatLabel,
   shouldRestartOnPrev,
   shuffledOrder,
   skipRepeat,
@@ -75,6 +76,12 @@ describe("repeat helpers", () => {
     expect(nextRepeatMode("off")).toBe("all");
     expect(nextRepeatMode("all")).toBe("one");
     expect(nextRepeatMode("one")).toBe("off");
+  });
+
+  it("labels the next repeat action", () => {
+    expect(repeatLabel("off")).toBe("列表循环");
+    expect(repeatLabel("all")).toBe("单曲循环");
+    expect(repeatLabel("one")).toBe("关闭循环");
   });
 
   it("treats single-track repeat as off when skipping", () => {

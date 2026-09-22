@@ -84,9 +84,9 @@ export function nextRepeatMode(current: RepeatMode): RepeatMode {
 }
 
 export function repeatLabel(mode: RepeatMode): string {
-  if (mode === "all") return "列表循环";
-  if (mode === "one") return "单曲循环";
-  return "关闭循环";
+  if (mode === "all") return "单曲循环";
+  if (mode === "one") return "关闭循环";
+  return "列表循环";
 }
 
 export function skipRepeat(repeat: RepeatMode): RepeatMode {
