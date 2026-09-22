@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { App as AntApp, Button, ConfigProvider, Input, Modal, Segmented } from "antd";
 import { AppstoreOutlined, PlusOutlined, SearchOutlined, UnorderedListOutlined } from "@ant-design/icons";
 import { theme } from "@/styles/theme";
@@ -6,7 +6,10 @@ import { useVideoStore } from "@/store/videoStore";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useClipboardWatch } from "@/hooks/useClipboardWatch";
 import { useAppUpdater } from "@/hooks/useAppUpdater";
+import { useTrackSelection } from "@/hooks/useTrackSelection";
+import { isPlayable } from "@/lib/importStatus";
 import { nextPlaylistName, playlistCoverUrls, resolvePlaylistSongs } from "@/lib/playlist";
+import { BatchActionBar } from "@/components/BatchActionBar";
 import { Board } from "@/components/Board";
 import { LibrarySidebar } from "@/components/LibrarySidebar";
 import { PlayerBar } from "@/components/PlayerBar";
@@ -14,6 +17,8 @@ import { AddVideoModal } from "@/components/AddVideoModal";
 import { ClipboardImportPrompt } from "@/components/ClipboardImportPrompt";
 import { PlaylistCover } from "@/components/PlaylistCover";
 import { PlaylistNameModal } from "@/components/PlaylistNameModal";
+import { buildBatchTrackMenu } from "@/components/trackContextMenu";
+import type { TrackSelectionView } from "@/components/trackSelection";
 import { cancelImport, onImportFailed, resumeIncompleteImports, retryImport } from "@/lib/importer";
 import { native } from "@/lib/native";
 import { SIDECAR_GUIDANCE } from "@/lib/sidecarError";
@@ -33,8 +38,11 @@ function BoardApp() {
   const createPlaylist = useVideoStore((s) => s.createPlaylist);
   const renamePlaylist = useVideoStore((s) => s.renamePlaylist);
   const deletePlaylist = useVideoStore((s) => s.deletePlaylist);
-  const addToPlaylist = useVideoStore((s) => s.addToPlaylist);
+  const addManyToPlaylist = useVideoStore((s) => s.addManyToPlaylist);
   const removeFromPlaylist = useVideoStore((s) => s.removeFromPlaylist);
+  const removeManyFromPlaylist = useVideoStore((s) => s.removeManyFromPlaylist);
+  const removeManyVideos = useVideoStore((s) => s.removeManyVideos);
+  const addToQueue = useVideoStore((s) => s.addToQueue);
   const moveInPlaylist = useVideoStore((s) => s.moveInPlaylist);
   const setSelectedLibrary = useVideoStore((s) => s.setSelectedLibrary);
   const setBoardView = useVideoStore((s) => s.setBoardView);
@@ -43,7 +51,7 @@ function BoardApp() {
   const [clipUrl, setClipUrl] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [nameModal, setNameModal] = useState<
-    { mode: "create"; seedSongId?: string } | { mode: "rename"; playlist: Playlist } | null
+    { mode: "create"; seedSongIds?: string[] } | { mode: "rename"; playlist: Playlist } | null
   >(null);
 
   const onError = useCallback((msg: string) => message.error(msg), [message]);
@@ -76,14 +84,77 @@ function BoardApp() {
   const visibleItems = q
     ? scopedItems.filter((i) => i.title.toLowerCase().includes(q) || i.uploader.toLowerCase().includes(q))
     : scopedItems;
+  const visibleIds = useMemo(() => visibleItems.map((item) => item.id), [visibleItems]);
+  const selection = useTrackSelection(visibleIds);
+  const selectedItems = useMemo(
+    () => visibleItems.filter((item) => selection.selectedSet.has(item.id)),
+    [visibleItems, selection.selectedSet],
+  );
+
+  useEffect(() => {
+    selection.exit();
+  }, [resolvedSelection]);
+
+  useEffect(() => {
+    selection.prune(items.map((item) => item.id));
+  }, [items]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable=true]")) return;
+      if (event.key === "Escape" && selection.managing) {
+        selection.exit();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a" && visibleIds.length > 0) {
+        event.preventDefault();
+        selection.selectAllVisible();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  const toastPlaylistAdd = (name: string, added: number, skipped: number) => {
+    if (added === 0) {
+      message.warning("已在该歌单中");
+      return;
+    }
+    if (skipped === 0) {
+      message.success(added === 1 ? `已添加到「${name}」` : `已添加 ${added} 首到「${name}」`);
+      return;
+    }
+    message.success(`已添加 ${added} 首到「${name}」，${skipped} 首已在歌单中`);
+  };
+
+  const toastQueueAdd = (added: number, skipped: number) => {
+    if (added === 0) {
+      message.warning("已在播放队列中");
+      return;
+    }
+    if (skipped === 0) {
+      message.success(added === 1 ? "已加入播放队列" : `已加入播放队列（${added} 首）`);
+      return;
+    }
+    message.success(`已加入播放队列 ${added} 首，${skipped} 首已在队列中`);
+  };
 
   const handleAddToPlaylist = (item: VideoItem, playlistId: string) => {
     const playlist = playlists.find((p) => p.id === playlistId);
-    if (addToPlaylist(playlistId, item.id)) {
-      message.success(`已添加到「${playlist?.name ?? "歌单"}」`);
-    } else {
-      message.warning("已在该歌单中");
-    }
+    const result = addManyToPlaylist(playlistId, [item.id]);
+    toastPlaylistAdd(playlist?.name ?? "歌单", result.added, result.skipped);
+  };
+
+  const handleAddManyToPlaylist = (playlistId: string, songIds: string[]) => {
+    const playlist = playlists.find((p) => p.id === playlistId);
+    const result = addManyToPlaylist(playlistId, songIds);
+    toastPlaylistAdd(playlist?.name ?? "歌单", result.added, result.skipped);
+  };
+
+  const handleAddToQueue = (songIds: string[]) => {
+    const result = addToQueue(songIds);
+    toastQueueAdd(result.added, result.skipped);
   };
 
   const handleNameSubmit = (name: string) => {
@@ -94,11 +165,61 @@ function BoardApp() {
       return;
     }
     const created = createPlaylist(name);
-    if (created && nameModal.seedSongId) {
-      addToPlaylist(created.id, nameModal.seedSongId);
-      message.success(`已添加到「${created.name}」`);
+    if (created && nameModal.seedSongIds?.length) {
+      const result = addManyToPlaylist(created.id, nameModal.seedSongIds);
+      toastPlaylistAdd(created.name, result.added, result.skipped);
     }
     setNameModal(null);
+  };
+
+  const deleteFromLibrary = (ids: string[]) => {
+    for (const id of ids) cancelImport(id);
+    if (ids.length === 1) removeVideo(ids[0]);
+    else removeManyVideos(ids);
+  };
+
+  const confirmDeleteMany = (ids: string[]) => {
+    if (ids.length === 0) return;
+    Modal.confirm({
+      title: ids.length === 1 ? "删除这条记录？" : `删除 ${ids.length} 条记录？`,
+      content: "会从资料库和所有歌单中移除。",
+      okText: "删除",
+      cancelText: "取消",
+      onOk: () => deleteFromLibrary(ids),
+    });
+  };
+
+  const handlePlaySelected = () => {
+    void controls.playSelected(selectedItems).then((ok) => {
+      if (!ok) message.warning("没有可播放的歌曲");
+    });
+  };
+
+  const selectedIds = selectedItems.map((item) => item.id);
+  const batchMenu = buildBatchTrackMenu({
+    selectedCount: selectedItems.length,
+    hasPlayable: selectedItems.some(isPlayable),
+    playlists,
+    currentPlaylistId: currentPlaylist?.id ?? null,
+    onPlaySelected: handlePlaySelected,
+    onAddToQueue: () => handleAddToQueue(selectedIds),
+    onAddToPlaylist: (playlistId) => handleAddManyToPlaylist(playlistId, selectedIds),
+    onCreatePlaylist: () => setNameModal({ mode: "create", seedSongIds: selectedIds }),
+    onRemoveFromPlaylist: currentPlaylist
+      ? () => {
+          const removed = removeManyFromPlaylist(currentPlaylist.id, selectedIds);
+          if (removed > 0) message.success(`已从歌单移除 ${removed} 首`);
+        }
+      : undefined,
+    onDelete: () => confirmDeleteMany(selectedIds),
+  });
+
+  const selectionView: TrackSelectionView = {
+    selecting: selection.managing,
+    selectedIds: selection.selectedSet,
+    batchMenu: selectedItems.length > 0 ? batchMenu : undefined,
+    onSelectClick: (item, mods) => selection.onItemClick(item.id, mods),
+    onSelectToggle: (item) => selection.toggle(item.id),
   };
 
   const confirmDeletePlaylist = (playlist: Playlist) => {
@@ -151,19 +272,51 @@ function BoardApp() {
               ) : null}
               <div className="library-heading-text">
                 <h2>{currentPlaylist ? currentPlaylist.name : "全部歌曲"}</h2>
-                <span className="library-heading-meta">{visibleItems.length} 首</span>
+                <span className="library-heading-meta">
+                  {visibleItems.length} 首
+                  {selection.managing ? ` · ${selection.visibleSelectedIds.length} 已选` : ""}
+                </span>
               </div>
             </div>
-            <Segmented
-              data-testid="board-view-toggle"
-              size="small"
-              value={boardView}
-              onChange={(value) => setBoardView(value as BoardViewMode)}
-              options={[
-                { value: "grid", icon: <AppstoreOutlined />, label: "网格" },
-                { value: "list", icon: <UnorderedListOutlined />, label: "列表" },
-              ]}
-            />
+            <div className="library-heading-actions">
+              {visibleItems.length > 0 ? (
+                <BatchActionBar
+                  managing={selection.managing}
+                  selectedCount={selectedItems.length}
+                  allVisibleSelected={selection.allVisibleSelected}
+                  hasPlayable={selectedItems.some(isPlayable)}
+                  playlists={playlists}
+                  currentPlaylistId={currentPlaylist?.id ?? null}
+                  onEnter={selection.enter}
+                  onExit={selection.exit}
+                  onSelectAll={selection.selectAllVisible}
+                  onClearVisible={selection.clearVisible}
+                  onPlaySelected={handlePlaySelected}
+                  onAddToQueue={() => handleAddToQueue(selectedIds)}
+                  onAddToPlaylist={(playlistId) => handleAddManyToPlaylist(playlistId, selectedIds)}
+                  onCreatePlaylist={() => setNameModal({ mode: "create", seedSongIds: selectedIds })}
+                  onRemoveFromPlaylist={
+                    currentPlaylist
+                      ? () => {
+                          const removed = removeManyFromPlaylist(currentPlaylist.id, selectedIds);
+                          if (removed > 0) message.success(`已从歌单移除 ${removed} 首`);
+                        }
+                      : undefined
+                  }
+                  onDelete={() => confirmDeleteMany(selectedIds)}
+                />
+              ) : null}
+              <Segmented
+                data-testid="board-view-toggle"
+                size="small"
+                value={boardView}
+                onChange={(value) => setBoardView(value as BoardViewMode)}
+                options={[
+                  { value: "grid", icon: <AppstoreOutlined />, label: "网格" },
+                  { value: "list", icon: <UnorderedListOutlined />, label: "列表" },
+                ]}
+              />
+            </div>
           </div>
           <Board
             items={visibleItems}
@@ -171,20 +324,15 @@ function BoardApp() {
             playing={playing}
             viewMode={boardView}
             emptyKind={currentPlaylist ? "playlist" : "library"}
+            selection={selectionView}
             onToggle={(item) => void controls.playFromList(item, scopedItems)}
             onRetry={(item) => retryImport(item.id)}
-            onDelete={
-              currentPlaylist
-                ? undefined
-                : (item) => {
-                    cancelImport(item.id);
-                    removeVideo(item.id);
-                  }
-            }
+            onDelete={(item) => deleteFromLibrary([item.id])}
             onRename={renameVideo}
             playlists={playlists}
             onAddToPlaylist={handleAddToPlaylist}
-            onCreatePlaylistFor={(item) => setNameModal({ mode: "create", seedSongId: item.id })}
+            onAddToQueue={(item) => handleAddToQueue([item.id])}
+            onCreatePlaylistFor={(item) => setNameModal({ mode: "create", seedSongIds: [item.id] })}
             onRemoveFromPlaylist={
               currentPlaylist ? (item) => removeFromPlaylist(currentPlaylist.id, item.id) : undefined
             }

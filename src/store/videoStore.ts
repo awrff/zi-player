@@ -34,12 +34,16 @@ export interface VideoState {
   renamePlaylist: (id: string, name: string) => boolean;
   deletePlaylist: (id: string) => void;
   addToPlaylist: (playlistId: string, songId: string) => boolean;
+  addManyToPlaylist: (playlistId: string, songIds: string[]) => { added: number; skipped: number };
   removeFromPlaylist: (playlistId: string, songId: string) => void;
+  removeManyFromPlaylist: (playlistId: string, songIds: string[]) => number;
+  removeManyVideos: (ids: string[]) => void;
   moveInPlaylist: (playlistId: string, songId: string, toIndex: number) => void;
   setSelectedLibrary: (id: LibrarySelection) => void;
   setBoardView: (mode: BoardViewMode) => void;
 
   setQueue: (ids: string[], playingId?: string | null) => void;
+  addToQueue: (ids: string[]) => { added: number; skipped: number };
   setShuffle: (shuffle: boolean) => void;
   setRepeat: (repeat: RepeatMode) => void;
   removeFromQueue: (id: string) => void;
@@ -50,12 +54,16 @@ export interface VideoState {
   setPlaying: (playing: boolean) => void;
 }
 
-function stripSong(playlists: Playlist[], songId: string): Playlist[] {
+function stripSongs(playlists: Playlist[], songIds: Set<string>): Playlist[] {
   return playlists.map((playlist) =>
-    playlist.songIds.includes(songId)
-      ? { ...playlist, songIds: playlist.songIds.filter((id) => id !== songId), updatedAt: Date.now() }
+    playlist.songIds.some((id) => songIds.has(id))
+      ? { ...playlist, songIds: playlist.songIds.filter((id) => !songIds.has(id)), updatedAt: Date.now() }
       : playlist,
   );
+}
+
+function stripSong(playlists: Playlist[], songId: string): Playlist[] {
+  return stripSongs(playlists, new Set([songId]));
 }
 
 export const useVideoStore = create<VideoState>()(
@@ -195,25 +203,67 @@ export const useVideoStore = create<VideoState>()(
         }));
       },
 
-      addToPlaylist: (playlistId, songId) => {
+      addToPlaylist: (playlistId, songId) => get().addManyToPlaylist(playlistId, [songId]).added > 0,
+
+      addManyToPlaylist: (playlistId, songIds) => {
         const playlist = get().playlists.find((p) => p.id === playlistId);
-        if (!playlist || !get().has(songId) || playlist.songIds.includes(songId)) return false;
+        if (!playlist) return { added: 0, skipped: songIds.length };
+        const have = new Set(playlist.songIds);
+        const next: string[] = [];
+        let skipped = 0;
+        for (const id of songIds) {
+          if (!get().has(id) || have.has(id)) {
+            skipped += 1;
+            continue;
+          }
+          have.add(id);
+          next.push(id);
+        }
+        if (next.length === 0) return { added: 0, skipped };
         set((state) => ({
           playlists: state.playlists.map((p) =>
-            p.id === playlistId ? { ...p, songIds: [...p.songIds, songId], updatedAt: Date.now() } : p,
+            p.id === playlistId ? { ...p, songIds: [...p.songIds, ...next], updatedAt: Date.now() } : p,
           ),
         }));
-        return true;
+        return { added: next.length, skipped };
       },
 
       removeFromPlaylist: (playlistId, songId) => {
+        get().removeManyFromPlaylist(playlistId, [songId]);
+      },
+
+      removeManyFromPlaylist: (playlistId, songIds) => {
+        const drop = new Set(songIds);
+        let removed = 0;
         set((state) => ({
-          playlists: state.playlists.map((p) =>
-            p.id === playlistId && p.songIds.includes(songId)
-              ? { ...p, songIds: p.songIds.filter((id) => id !== songId), updatedAt: Date.now() }
-              : p,
-          ),
+          playlists: state.playlists.map((p) => {
+            if (p.id !== playlistId) return p;
+            const next = p.songIds.filter((id) => {
+              if (!drop.has(id)) return true;
+              removed += 1;
+              return false;
+            });
+            if (next.length === p.songIds.length) return p;
+            return { ...p, songIds: next, updatedAt: Date.now() };
+          }),
         }));
+        return removed;
+      },
+
+      removeManyVideos: (ids) => {
+        const drop = new Set(ids);
+        if (drop.size === 0) return;
+        set((state) => {
+          const currentGone = state.currentId !== null && drop.has(state.currentId);
+          return {
+            items: state.items.filter((i) => !drop.has(i.id)),
+            playlists: stripSongs(state.playlists, drop),
+            queueIds: state.queueIds.filter((id) => !drop.has(id)),
+            shuffleOrder: state.shuffleOrder?.filter((id) => !drop.has(id)) ?? null,
+            currentId: currentGone ? null : state.currentId,
+            playing: currentGone ? false : state.playing,
+          };
+        });
       },
 
       moveInPlaylist: (playlistId, songId, toIndex) => {
@@ -240,6 +290,26 @@ export const useVideoStore = create<VideoState>()(
           queueIds: ids,
           shuffleOrder: get().shuffle ? shuffledOrder(ids, currentId) : null,
         });
+      },
+
+      addToQueue: (ids) => {
+        const existing = new Set(get().queueIds);
+        const unique: string[] = [];
+        let skipped = 0;
+        for (const id of ids) {
+          if (!get().has(id) || existing.has(id)) {
+            skipped += 1;
+            continue;
+          }
+          existing.add(id);
+          unique.push(id);
+        }
+        if (unique.length === 0) return { added: 0, skipped };
+        set((state) => ({
+          queueIds: [...state.queueIds, ...unique],
+          shuffleOrder: state.shuffleOrder ? [...state.shuffleOrder, ...unique] : null,
+        }));
+        return { added: unique.length, skipped };
       },
 
       setShuffle: (shuffle) => {

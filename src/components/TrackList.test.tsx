@@ -51,4 +51,29 @@ describe("TrackList", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "上移" }));
     expect(onMove).toHaveBeenCalledWith(items[1], -1);
   });
+
+  it("toggles selection instead of playing while managing", () => {
+    const onToggle = vi.fn();
+    const onSelectToggle = vi.fn();
+    const onSelectClick = vi.fn(() => "select" as const);
+    render(
+      <TrackList
+        items={items}
+        playingId={null}
+        playing={false}
+        onToggle={onToggle}
+        onRename={() => {}}
+        selection={{
+          selecting: true,
+          selectedIds: new Set(["BV1"]),
+          onSelectClick,
+          onSelectToggle,
+        }}
+      />,
+    );
+    fireEvent.click(screen.getAllByTestId("track-row")[0]);
+    expect(onSelectClick).toHaveBeenCalled();
+    expect(onToggle).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId("track-row")[0]).toHaveAttribute("data-selected");
+  });
 });
