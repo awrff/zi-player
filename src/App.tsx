@@ -14,6 +14,7 @@ import { AddVideoModal } from "@/components/AddVideoModal";
 import { ClipboardImportPrompt } from "@/components/ClipboardImportPrompt";
 import { PlaylistCover } from "@/components/PlaylistCover";
 import { PlaylistNameModal } from "@/components/PlaylistNameModal";
+import { cancelImport, onImportFailed, resumeIncompleteImports, retryImport } from "@/lib/importer";
 import { native } from "@/lib/native";
 import { SIDECAR_GUIDANCE } from "@/lib/sidecarError";
 import type { BoardViewMode, LibrarySelection, Playlist, VideoItem } from "@/types";
@@ -58,6 +59,12 @@ function BoardApp() {
         // ponytail: browser / old builds without the command should stay quiet
       });
   }, [message]);
+
+  useEffect(() => {
+    resumeIncompleteImports();
+  }, []);
+
+  useEffect(() => onImportFailed((title, detail) => message.error(`「${title}」导入失败：${detail}`)), [message]);
 
   useClipboardWatch(setClipUrl);
   useAppUpdater();
@@ -165,7 +172,15 @@ function BoardApp() {
             viewMode={boardView}
             emptyKind={currentPlaylist ? "playlist" : "library"}
             onToggle={(item) => void controls.playFromList(item, scopedItems)}
-            onDelete={currentPlaylist ? undefined : (item) => removeVideo(item.id)}
+            onRetry={(item) => retryImport(item.id)}
+            onDelete={
+              currentPlaylist
+                ? undefined
+                : (item) => {
+                    cancelImport(item.id);
+                    removeVideo(item.id);
+                  }
+            }
             onRename={renameVideo}
             playlists={playlists}
             onAddToPlaylist={handleAddToPlaylist}

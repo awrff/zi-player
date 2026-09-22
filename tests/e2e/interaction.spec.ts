@@ -7,10 +7,31 @@ test("adds a record through the add dialog", async ({ page }) => {
 
   const modal = page.getByRole("dialog");
   await modal.getByLabel("video-url-input").fill("https://www.bilibili.com/video/BV1xx411c7mD");
-  await modal.getByRole("button", { name: "解析并添加" }).click();
+  await modal.getByRole("button", { name: /添\s*加/ }).click();
 
   await expect(page.getByTestId("turntable")).toHaveCount(1);
   await expect(page.getByTestId("turntable").first()).toContainText("Sample video 1");
+  await expect(page.getByTestId("turntable").first()).toHaveAttribute("data-import-status", "ready");
+  await expect(page.getByTestId("cache-badge")).toBeVisible();
+});
+
+test("does not play a song until import finishes", async ({ page }) => {
+  await gotoBoard(page, []);
+  await page.evaluate(() => {
+    window.__nativeMock!.downloadGate = new Promise(() => {});
+  });
+  await page.getByRole("button", { name: /添\s*加/ }).click();
+  const modal = page.getByRole("dialog");
+  await modal.getByLabel("video-url-input").fill("https://www.bilibili.com/video/BV1xx411c7mD");
+  await modal.getByRole("button", { name: /添\s*加/ }).click();
+
+  const card = page.getByTestId("turntable").first();
+  await expect(card).toBeVisible();
+  await expect(card.getByTestId("import-status")).toBeVisible();
+  await expect(card).not.toHaveAttribute("data-ready");
+  await expect(card).toHaveAttribute("aria-disabled", "true");
+  await card.click({ force: true });
+  await expect(card).not.toHaveAttribute("data-playing", "true");
 });
 
 test("playing toggles the spinning record", async ({ page }) => {

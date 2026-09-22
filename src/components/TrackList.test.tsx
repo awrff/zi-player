@@ -12,6 +12,8 @@ const items: VideoItem[] = [
     duration: 125,
     cover: "https://example.com/a.jpg",
     addedAt: 1,
+    cachePath: "data:audio/wav;base64,a",
+    importStatus: "ready",
   },
   {
     id: "BV2",
@@ -21,6 +23,8 @@ const items: VideoItem[] = [
     duration: 90,
     cover: "https://example.com/b.jpg",
     addedAt: 2,
+    cachePath: "data:audio/wav;base64,b",
+    importStatus: "ready",
   },
 ];
 

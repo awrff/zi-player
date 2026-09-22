@@ -10,6 +10,8 @@ const item: VideoItem = {
   duration: 10,
   cover: "x",
   addedAt: 1,
+  cachePath: "data:audio/wav;base64,x",
+  importStatus: "ready",
 };
 
 const playlists: Playlist[] = [{ id: "pl-1", name: "通勤", songIds: [], createdAt: 1, updatedAt: 1 }];
@@ -37,5 +39,23 @@ describe("buildTrackMenu", () => {
     });
     menu.onClick?.({ key: "new-playlist", keyPath: ["new-playlist"], item: {}, domEvent: { stopPropagation() {} } } as never);
     expect(onCreatePlaylistFor).toHaveBeenCalledWith(item);
+  });
+
+  it("disables play and offers retry when import failed", () => {
+    const onRetry = vi.fn();
+    const failed = { ...item, cachePath: undefined, importStatus: "failed" as const };
+    const menu = buildTrackMenu(failed, false, {
+      onToggle: () => {},
+      onRetry,
+      onRename: () => {},
+    });
+    const keys = (menu.items ?? []).map((entry) => (entry && "key" in entry ? entry.key : null));
+    expect(keys).toContain("retry");
+    const toggle = (menu.items ?? []).find((entry) => entry && "key" in entry && entry.key === "toggle") as {
+      disabled?: boolean;
+    };
+    expect(toggle.disabled).toBe(true);
+    menu.onClick?.({ key: "retry", keyPath: ["retry"], item: {}, domEvent: { stopPropagation() {} } } as never);
+    expect(onRetry).toHaveBeenCalledWith(failed);
   });
 });

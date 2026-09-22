@@ -31,7 +31,7 @@ describe("AddVideoModal", () => {
     const user = userEvent.setup();
     renderModal();
     await user.type(screen.getByLabelText("video-url-input"), "https://www.bilibili.com/video/BV1xx411c7mD");
-    await user.click(screen.getByRole("button", { name: /解析并添加/ }));
+    await user.click(screen.getByRole("button", { name: /添\s*加/ }));
 
     expect(await screen.findByText(IMPORT_ERROR_COPY.network)).toBeInTheDocument();
     expect(screen.queryByText("解析失败，请检查链接后重试")).not.toBeInTheDocument();

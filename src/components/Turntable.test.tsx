@@ -11,6 +11,8 @@ const item: VideoItem = {
   duration: 233,
   cover: "https://example.com/cover.jpg",
   addedAt: 1,
+  cachePath: "data:audio/wav;base64,xxx",
+  importStatus: "ready",
 };
 
 describe("Turntable", () => {
@@ -32,6 +34,33 @@ describe("Turntable", () => {
     );
     expect(screen.getByTestId("vinyl-disc")).toHaveAttribute("data-spinning");
     expect(screen.getByTestId("vinyl-disc").className).toContain("spinning");
+  });
+
+  it("shows a cache badge when ready and blocks play while importing", () => {
+    const onToggle = vi.fn();
+    const { rerender } = render(
+      <Turntable item={item} playing={false} onToggle={onToggle} onDelete={() => {}} onRename={() => {}} />,
+    );
+    expect(screen.getByTestId("cache-badge")).toBeInTheDocument();
+
+    const pending = { ...item, cachePath: undefined, importStatus: "transcoding" as const, importProgress: 40 };
+    rerender(
+      <Turntable item={pending} playing={false} onToggle={onToggle} onDelete={() => {}} onRename={() => {}} />,
+    );
+    expect(screen.getByTestId("import-status")).toHaveTextContent("下载转码");
+    expect(screen.queryByTestId("turntable-play")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("turntable"));
+    expect(onToggle).toHaveBeenCalledWith(pending);
+  });
+
+  it("retries a failed import from the card", () => {
+    const onRetry = vi.fn();
+    const failed = { ...item, cachePath: undefined, importStatus: "failed" as const, importError: "网络异常" };
+    render(
+      <Turntable item={failed} playing={false} onToggle={() => {}} onRetry={onRetry} onDelete={() => {}} onRename={() => {}} />,
+    );
+    fireEvent.click(screen.getByTestId("turntable"));
+    expect(onRetry).toHaveBeenCalledWith(failed);
   });
 
   it("toggles on click", () => {
