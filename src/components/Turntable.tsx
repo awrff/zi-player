@@ -51,7 +51,7 @@ export function Turntable({ item, playing, selection, ...handlers }: TurntablePr
         data-selected={selected || undefined}
         data-import-status={status}
         data-ready={playable || undefined}
-        aria-disabled={(!playable && !failed && !selection) || undefined}
+        aria-disabled={(!playable && !failed && !selection?.selecting) || undefined}
         onClick={(event) => {
           if (selection) {
             const action = selection.onSelectClick(item, selectModifiers(event));
