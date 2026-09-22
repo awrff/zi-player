@@ -44,11 +44,11 @@ export function Board({
     emptyKind === "playlist" ? (
       <div className="board-empty-guide" data-testid="board-empty-guide">
         <p>这个歌单还是空的</p>
-        <p>在「全部唱片」里右键唱片，选择「添加到歌单」</p>
+        <p>在「全部歌曲」里右键歌曲，选择「添加到歌单」</p>
       </div>
     ) : (
       <div className="board-empty-guide" data-testid="board-empty-guide">
-        <p>唱片架还是空的</p>
+        <p>还没有歌曲</p>
         <p>粘贴 B 站视频链接，或点击右上角「添加」把歌加进来</p>
       </div>
     );
@@ -65,7 +65,7 @@ export function Board({
       ) : viewMode === "list" ? (
         <TrackList items={items} playingId={playingId} playing={playing} onMove={onMove} {...handlers} onRename={startRename} />
       ) : (
-        <div className="board-grid" data-testid="board-grid" role="list" aria-label="唱片列表">
+        <div className="board-grid" data-testid="board-grid" role="list" aria-label="歌曲列表">
           {items.map((item, index) => (
             <div key={item.id} className="board-slot" data-testid="board-slot" role="listitem">
               <Turntable

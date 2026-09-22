@@ -113,7 +113,7 @@ function BoardApp() {
         <Input
           allowClear
           prefix={<SearchOutlined style={{ color: "var(--text-dim)" }} />}
-          placeholder="搜索唱片"
+          placeholder="搜索歌曲"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ width: 220 }}
@@ -143,7 +143,7 @@ function BoardApp() {
                 <PlaylistCover covers={playlistCoverUrls(currentPlaylist.songIds, items)} size={56} />
               ) : null}
               <div className="library-heading-text">
-                <h2>{currentPlaylist ? currentPlaylist.name : "全部唱片"}</h2>
+                <h2>{currentPlaylist ? currentPlaylist.name : "全部歌曲"}</h2>
                 <span className="library-heading-meta">{visibleItems.length} 首</span>
               </div>
             </div>

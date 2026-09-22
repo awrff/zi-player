@@ -34,7 +34,7 @@ describe("LibrarySidebar", () => {
       />,
     );
     expect(screen.getByTestId("library-sidebar")).toBeInTheDocument();
-    expect(screen.getByTestId("library-all")).toHaveTextContent("全部唱片");
+    expect(screen.getByTestId("library-all")).toHaveTextContent("全部歌曲");
     expect(screen.getByTestId("library-all")).toHaveTextContent("3");
     expect(screen.getByTestId("library-all")).toHaveClass("is-active");
     expect(screen.getByTestId("library-new-playlist")).toBeEnabled();
