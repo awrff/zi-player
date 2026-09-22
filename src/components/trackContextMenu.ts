@@ -1,9 +1,11 @@
 import { Modal } from "antd";
 import type { MenuProps } from "antd";
+import { isPlayable, normalizeImportStatus } from "@/lib/importStatus";
 import type { Playlist, VideoItem } from "@/types";
 
 export interface TrackMenuHandlers {
   onToggle: (item: VideoItem) => void;
+  onRetry?: (item: VideoItem) => void;
   onRename: (item: VideoItem) => void;
   onDelete?: (item: VideoItem) => void;
   onRemoveFromPlaylist?: (item: VideoItem) => void;
@@ -15,7 +17,18 @@ export interface TrackMenuHandlers {
 }
 
 export function buildTrackMenu(item: VideoItem, playing: boolean, handlers: TrackMenuHandlers): MenuProps {
-  const items: NonNullable<MenuProps["items"]> = [{ key: "toggle", label: playing ? "暂停" : "播放" }];
+  const playable = isPlayable(item);
+  const status = normalizeImportStatus(item);
+  const items: NonNullable<MenuProps["items"]> = [
+    {
+      key: "toggle",
+      label: playing ? "暂停" : status === "failed" ? "无法播放" : playable ? "播放" : "导入中",
+      disabled: !playing && !playable,
+    },
+  ];
+  if (status === "failed" && handlers.onRetry) {
+    items.push({ key: "retry", label: "重试" });
+  }
 
   if (handlers.onAddToPlaylist || handlers.onCreatePlaylistFor) {
     const children: NonNullable<MenuProps["items"]> = (handlers.playlists ?? []).map((playlist) => ({
@@ -51,6 +64,7 @@ export function buildTrackMenu(item: VideoItem, playing: boolean, handlers: Trac
     onClick: ({ key, domEvent }) => {
       domEvent.stopPropagation();
       if (key === "toggle") handlers.onToggle(item);
+      if (key === "retry") handlers.onRetry?.(item);
       if (key === "rename") handlers.onRename(item);
       if (key === "move-up") handlers.onMoveUp?.(item);
       if (key === "move-down") handlers.onMoveDown?.(item);

@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { durableImportStatus, isReusableAudioCache } from "@/lib/importStatus";
 import { newPlaylistId, nextPlaylistName } from "@/lib/playlist";
 import { shuffledOrder } from "@/lib/playQueue";
-import type { BoardViewMode, LibrarySelection, Playlist, RepeatMode, VideoItem, VideoMeta } from "@/types";
+import type { BoardViewMode, ImportStatus, LibrarySelection, Playlist, RepeatMode, VideoItem, VideoMeta } from "@/types";
 
 export interface VideoState {
   items: VideoItem[];
@@ -20,11 +21,13 @@ export interface VideoState {
   shuffle: boolean;
   repeat: RepeatMode;
 
-  /** Add a video; returns the new item, or null when it is a duplicate. */
   addVideo: (meta: VideoMeta) => VideoItem | null;
   removeVideo: (id: string) => void;
   renameVideo: (id: string, title: string) => void;
   setCachePath: (id: string, path: string) => void;
+  patchVideo: (id: string, patch: Partial<Omit<VideoItem, "id">>) => void;
+  replaceVideoId: (fromId: string, toId: string) => boolean;
+  setImportState: (id: string, state: { status: ImportStatus; progress?: number; error?: string }) => void;
   has: (id: string) => boolean;
 
   createPlaylist: (name?: string) => Playlist | null;
@@ -74,6 +77,8 @@ export const useVideoStore = create<VideoState>()(
         const item: VideoItem = {
           ...meta,
           addedAt: Date.now(),
+          importStatus: "queued",
+          importProgress: 0,
         };
         set((state) => ({ items: [...state.items, item] }));
         return item;
@@ -98,7 +103,54 @@ export const useVideoStore = create<VideoState>()(
 
       setCachePath: (id, path) => {
         set((state) => ({
-          items: state.items.map((i) => (i.id === id ? { ...i, cachePath: path } : i)),
+          items: state.items.map((i) =>
+            i.id === id
+              ? {
+                  ...i,
+                  cachePath: path,
+                  ...(isReusableAudioCache(path)
+                    ? { importStatus: "ready" as const, importProgress: 100, importError: undefined }
+                    : {}),
+                }
+              : i,
+          ),
+        }));
+      },
+
+      patchVideo: (id, patch) => {
+        set((state) => ({
+          items: state.items.map((i) => (i.id === id ? { ...i, ...patch } : i)),
+        }));
+      },
+
+      replaceVideoId: (fromId, toId) => {
+        if (fromId === toId) return true;
+        if (!get().has(fromId) || get().has(toId)) return false;
+        set((state) => ({
+          items: state.items.map((i) => (i.id === fromId ? { ...i, id: toId } : i)),
+          playlists: state.playlists.map((playlist) => ({
+            ...playlist,
+            songIds: playlist.songIds.map((songId) => (songId === fromId ? toId : songId)),
+          })),
+          queueIds: state.queueIds.map((songId) => (songId === fromId ? toId : songId)),
+          shuffleOrder: state.shuffleOrder?.map((songId) => (songId === fromId ? toId : songId)) ?? null,
+          currentId: state.currentId === fromId ? toId : state.currentId,
+        }));
+        return true;
+      },
+
+      setImportState: (id, next) => {
+        set((state) => ({
+          items: state.items.map((i) =>
+            i.id === id
+              ? {
+                  ...i,
+                  importStatus: next.status,
+                  importProgress: next.progress ?? i.importProgress,
+                  importError: next.error,
+                }
+              : i,
+          ),
         }));
       },
 
@@ -214,7 +266,10 @@ export const useVideoStore = create<VideoState>()(
     {
       name: "zi-player",
       partialize: (state) => ({
-        items: state.items,
+        items: state.items.map(({ importProgress: _progress, ...item }) => ({
+          ...item,
+          importStatus: durableImportStatus(item),
+        })),
         playlists: state.playlists,
         selectedLibrary: state.selectedLibrary,
         boardView: state.boardView,

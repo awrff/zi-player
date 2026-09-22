@@ -12,6 +12,8 @@ function makeItems(n: number): VideoItem[] {
     duration: 120,
     cover: "https://example.com/cover.jpg",
     addedAt: i,
+    cachePath: "data:audio/wav;base64,x",
+    importStatus: "ready" as const,
   }));
 }
 

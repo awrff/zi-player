@@ -1,6 +1,7 @@
 import { Button } from "antd";
 import { CloseOutlined } from "@ant-design/icons";
 import { formatDuration } from "@/lib/format";
+import { importStatusLabel, isPlayable, normalizeImportStatus } from "@/lib/importStatus";
 import type { VideoItem } from "@/types";
 
 export function PlayQueue({
@@ -28,18 +29,39 @@ export function PlayQueue({
         <ul className="play-queue-list">
           {items.map((item) => {
             const active = item.id === currentId;
+            const playable = isPlayable(item);
+            const status = normalizeImportStatus(item);
             return (
-              <li key={item.id} className={active ? "play-queue-row is-active" : "play-queue-row"}>
-                <button type="button" className="play-queue-main" onClick={() => onPlay(item)}>
-                  <img className="play-queue-cover" src={item.cover} alt="" />
+              <li
+                key={item.id}
+                className={[
+                  "play-queue-row",
+                  active ? "is-active" : "",
+                  playable ? "" : "is-pending",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <button
+                  type="button"
+                  className="play-queue-main"
+                  disabled={!playable}
+                  onClick={() => onPlay(item)}
+                >
+                  {item.cover ? (
+                    <img className="play-queue-cover" src={item.cover} alt="" />
+                  ) : (
+                    <span className="play-queue-cover" />
+                  )}
                   <span className="play-queue-meta">
                     <span className="play-queue-title">{item.title}</span>
                     <span className="play-queue-sub">
-                      {item.uploader}
-                      {active ? (playing ? " · 正在播放" : " · 已暂停") : ""}
+                      {playable
+                        ? `${item.uploader}${active ? (playing ? " · 正在播放" : " · 已暂停") : ""}`
+                        : importStatusLabel(status)}
                     </span>
                   </span>
-                  <span className="play-queue-time">{formatDuration(item.duration)}</span>
+                  <span className="play-queue-time">{playable ? formatDuration(item.duration) : ""}</span>
                 </button>
                 <Button
                   type="text"

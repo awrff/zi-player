@@ -14,12 +14,17 @@ export interface VideoMeta {
   cover: string;
 }
 
+export type ImportStatus = "queued" | "resolving" | "transcoding" | "ready" | "failed";
+
 /** A video item stored on the board. */
 export interface VideoItem extends VideoMeta {
   /** Unix epoch ms when the item was added. */
   addedAt: number;
   /** Local audio source URL (set after the audio stream has been cached). */
   cachePath?: string;
+  importStatus?: ImportStatus;
+  importProgress?: number;
+  importError?: string;
 }
 
 /** A named, ordered list of library video ids. */

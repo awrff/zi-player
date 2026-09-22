@@ -34,6 +34,7 @@ describe("videoStore", () => {
     expect(item).not.toBeNull();
     expect(item!.title).toBe("标题-BV1");
     expect(item!.addedAt).toBeGreaterThan(0);
+    expect(item!.importStatus).toBe("queued");
     expect(useVideoStore.getState().items).toHaveLength(1);
   });
 
@@ -74,6 +75,22 @@ describe("videoStore", () => {
     useVideoStore.getState().addVideo(meta("BV1"));
     useVideoStore.getState().setCachePath("BV1", "mock://audio/BV1.m4a");
     expect(useVideoStore.getState().items[0].cachePath).toBe("mock://audio/BV1.m4a");
+  });
+
+  it("marks reusable ogg caches as ready", () => {
+    useVideoStore.getState().addVideo(meta("BV1"));
+    useVideoStore.getState().setCachePath("BV1", "/data/audio/BV1.ogg");
+    expect(useVideoStore.getState().items[0].importStatus).toBe("ready");
+  });
+
+  it("replaces a short-link id after resolve", () => {
+    useVideoStore.getState().addVideo({
+      ...meta("AbCdEf"),
+      url: "https://b23.tv/AbCdEf",
+    });
+    expect(useVideoStore.getState().replaceVideoId("AbCdEf", "BV1real")).toBe(true);
+    expect(useVideoStore.getState().items[0].id).toBe("BV1real");
+    expect(useVideoStore.getState().replaceVideoId("missing", "BV2")).toBe(false);
   });
 });
 

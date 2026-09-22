@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   nextId,
+  nextPlayableId,
   nextRepeatMode,
   playOrder,
   prevId,
+  prevPlayableId,
   shouldRestartOnPrev,
   shuffledOrder,
   skipRepeat,
@@ -41,6 +43,14 @@ describe("nextId / prevId", () => {
   it("wraps when repeat is all", () => {
     expect(nextId(order, "c", "all")).toBe("a");
     expect(prevId(order, "a", "all")).toBe("c");
+  });
+
+  it("skips unplayable ids", () => {
+    const playable = (id: string) => id !== "b";
+    expect(nextPlayableId(order, "a", "off", playable)).toBe("c");
+    expect(prevPlayableId(order, "c", "off", playable)).toBe("a");
+    expect(nextPlayableId(order, "c", "off", playable)).toBeNull();
+    expect(nextPlayableId(order, "c", "all", playable)).toBe("a");
   });
 
   it("stays on the current track when repeat is one", () => {
