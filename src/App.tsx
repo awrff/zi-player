@@ -5,6 +5,7 @@ import { theme } from "@/styles/theme";
 import { useVideoStore } from "@/store/videoStore";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useClipboardWatch } from "@/hooks/useClipboardWatch";
+import { useAppUpdater } from "@/hooks/useAppUpdater";
 import { nextPlaylistName, playlistCoverUrls, resolvePlaylistSongs } from "@/lib/playlist";
 import { Board } from "@/components/Board";
 import { LibrarySidebar } from "@/components/LibrarySidebar";
@@ -59,6 +60,7 @@ function BoardApp() {
   }, [message]);
 
   useClipboardWatch(setClipUrl);
+  useAppUpdater();
 
   const currentPlaylist = selectedLibrary === "all" ? null : (playlists.find((p) => p.id === selectedLibrary) ?? null);
   const resolvedSelection: LibrarySelection = currentPlaylist ? currentPlaylist.id : "all";

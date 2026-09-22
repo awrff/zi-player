@@ -113,4 +113,12 @@ export const mockNative: Native = {
       if (window.__nativeMock) window.__nativeMock.showHandler = null;
     };
   },
+
+  async checkUpdate() {
+    return null;
+  },
+
+  async installUpdate() {},
+
+  async relaunch() {},
 };

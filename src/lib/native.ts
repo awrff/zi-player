@@ -35,6 +35,15 @@ export interface Native {
 
   /** Subscribe to window show/focus events; returns an unsubscribe function. */
   onWindowShow(cb: () => void): () => void;
+
+  checkUpdate(): Promise<AppUpdate | null>;
+  installUpdate(): Promise<void>;
+  relaunch(): Promise<void>;
+}
+
+export interface AppUpdate {
+  version: string;
+  notes: string;
 }
 
 const useMock = import.meta.env.VITE_MOCK_TAURI === "1";

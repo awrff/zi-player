@@ -128,8 +128,49 @@ npm run tauri build        # 打包 Windows/Linux/macOS 安装包
 
 `npm run tauri build` **不能**在缺 webkit2gtk-4.1 或过旧 Rust 的环境里完成。先满足「先决条件」，再在对应平台上打包。
 
-打包产物位于 `src-tauri/target/release/bundle/`（Windows 为 `nsis/` 与 `msi/`，
-Linux 为 `deb/` / `appimage/`，macOS 为 `dmg/` / `macos/`）。
+打包产物位于 `src-tauri/target/release/bundle/`（Windows 为 `nsis/`，
+Linux 为 `deb/` / `appimage/`）。CI Release 只打这两端。
+
+## 发版
+
+版本号写在四处，必须一起改：`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`（以及 `Cargo.lock` 里本包那一行）。
+
+```bash
+npm run version:bump -- 0.2.1
+# 更新 CHANGELOG.md 后提交
+git tag -a v0.2.1 -m "v0.2.1"
+git push origin v0.2.1
+```
+
+推送 `v*` tag 会触发 `.github/workflows/release.yml`：Windows NSIS + Linux deb/AppImage，并生成 updater 用的 `latest.json` 与 `.sig`。已有 tag 可在 Actions 里手动跑 `Release`（`workflow_dispatch`）。
+
+本地 `npm run tauri build` 同样会签 updater 产物，需要先注入私钥（不要把密码写进仓库）：
+
+```powershell
+$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\bilibili-board.key" -Raw
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "your-key-password"
+npm run tauri build
+```
+
+GitHub Actions secrets（仓库 Settings → Secrets）：
+
+- `TAURI_SIGNING_PRIVATE_KEY`：`~/.tauri/bilibili-board.key` 的**文件内容**
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`：生成密钥时的密码
+
+Workflow 权限需要 **Read and write**，否则建不了 Release。
+
+自更新 endpoint 是  
+`https://github.com/awrff/bilibili-board/releases/latest/download/latest.json`。  
+仓库保持私有时，已安装客户端拉不到资产，检查失败会静默忽略；公开仓库后即可用。
+
+## CI
+
+`.github/workflows/ci.yml` 在 `master` / `develop` 的 push 与 PR 上跑：
+
+- Node **22**（见 `.nvmrc`，`npm ci`，不升依赖）
+- Vitest + Playwright
+- sidecar 脚本自检
+- Ubuntu 22.04 上 `cargo test --locked`（会先拉 linux sidecar）
 
 ## 功能
 

@@ -9,6 +9,8 @@
     "core:window:allow-hide",
     "core:window:allow-set-focus",
     "clipboard-manager:allow-read-text",
+    "updater:default",
+    "process:default",
     {
       "identifier": "shell:allow-execute",
       "allow": [
