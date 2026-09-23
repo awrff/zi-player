@@ -54,6 +54,15 @@ export type ImportFailReason =
   | "parse-failed"
   | "resolve-failed";
 
+/** Real import progress pushed from the Rust host (`import-progress` event). */
+export interface ImportProgressEvent {
+  /** Id of the import job the sidecar is working on. */
+  id: string;
+  stage: "download" | "transcode";
+  /** Display-space percent; omitted when unknown (e.g. unknown duration). */
+  percent?: number | null;
+}
+
 /** Result of importing a URL into the board. */
 export type ImportResult =
   | { ok: true; item: VideoItem }

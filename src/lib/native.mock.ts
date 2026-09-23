@@ -1,5 +1,5 @@
 import type { Native } from "./native";
-import type { VideoMeta } from "@/types";
+import type { ImportProgressEvent, VideoMeta } from "@/types";
 import { extractVideoId } from "./parser";
 import { silentWavDataUri } from "./silentWav";
 
@@ -88,7 +88,7 @@ export const mockNative: Native = {
     return fixture;
   },
 
-  async downloadAudio(_id: string): Promise<string> {
+  async downloadAudio(_id: string, _url?: string, _durationSecs?: number): Promise<string> {
     const controls = ensureControls();
     if (controls.downloadGate) await controls.downloadGate;
     else await new Promise((r) => setTimeout(r, controls.downloadDelay));
@@ -107,6 +107,13 @@ export const mockNative: Native = {
 
   async checkSidecars(): Promise<string[]> {
     return [];
+  },
+
+  async cancelImport(_id: string): Promise<void> {},
+
+  onImportProgress(_cb: (progress: ImportProgressEvent) => void): () => void {
+    // Mock/e2e runs rely on the queue's fallback progress timers.
+    return () => {};
   },
 
   async readClipboard(): Promise<string> {

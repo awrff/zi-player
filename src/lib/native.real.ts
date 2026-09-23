@@ -1,10 +1,11 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import type { Native } from "./native";
-import type { VideoMeta } from "@/types";
+import type { ImportProgressEvent, VideoMeta } from "@/types";
 
 let pendingUpdate: Update | null = null;
 
@@ -15,8 +16,8 @@ export const realNative: Native = {
     return invoke<VideoMeta>("resolve_video", { url });
   },
 
-  async downloadAudio(id: string, url: string): Promise<string> {
-    return invoke<string>("download_audio", { id, url });
+  async downloadAudio(id: string, url: string, durationSecs?: number): Promise<string> {
+    return invoke<string>("download_audio", { id, url, durationSecs });
   },
 
   async audioUrl(path: string): Promise<string> {
@@ -31,6 +32,17 @@ export const realNative: Native = {
 
   async checkSidecars(): Promise<string[]> {
     return invoke<string[]>("check_sidecars");
+  },
+
+  async cancelImport(id: string): Promise<void> {
+    await invoke("cancel_import", { id });
+  },
+
+  onImportProgress(cb: (progress: ImportProgressEvent) => void): () => void {
+    const unlisten = listen<ImportProgressEvent>("import-progress", (event) => cb(event.payload));
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
   },
 
   async readClipboard(): Promise<string> {
