@@ -178,6 +178,10 @@ Workflow 权限需要 **Read and write**，否则建不了 Release。
 - **托盘**：关闭窗口隐藏到托盘。
 - **响应式**：board 使用 `auto-fill/minmax` 网格，随窗口宽度自适应列数。
 
+## 许可证
+
+本项目以 [MIT](./LICENSE) 发布。随包分发的 yt-dlp（Unlicense）与 ffmpeg（GPL-3.0，BtbN 构建）等第三方组件的声明见 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)。
+
 ## 测试说明
 
 - 所有原生能力都收敛在 `src/lib/native.ts` 适配器上；单元测试与 Playwright 通过
