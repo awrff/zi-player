@@ -1,9 +1,9 @@
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use tauri::{AppHandle, Manager};
-use tauri_plugin_shell::process::Command;
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_shell::process::{Command, CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 /// Video metadata returned to the frontend. Field names match the TS `VideoMeta`.
@@ -16,6 +16,18 @@ pub struct VideoMeta {
     pub uploader: String,
     pub duration: f64,
     pub cover: String,
+}
+
+/// Real import progress pushed to the webview via the `import-progress` event.
+/// `percent` lives in the card's display space (download 25–85, transcode
+/// 85–100) so the frontend can show it as-is; it is omitted when unknown
+/// (e.g. ffmpeg transcode of an input with unknown duration).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportProgress {
+    id: String,
+    stage: &'static str,
+    percent: Option<u8>,
 }
 
 /// Hint shown when a bundled sidecar cannot be launched (usually not fetched).
@@ -134,6 +146,153 @@ pub async fn check_sidecars(app: AppHandle) -> Result<Vec<String>, String> {
     Ok(missing)
 }
 
+/// Sidecar child processes per import id, so a cancelled import can kill the
+/// yt-dlp/ffmpeg actually running for it. The pid is kept alongside so the
+/// finished run only unregisters its own entry (a newer import may have
+/// re-registered the same id in the meantime).
+fn running_processes() -> &'static Mutex<HashMap<String, (u32, CommandChild)>> {
+    static RUNNING: OnceLock<Mutex<HashMap<String, (u32, CommandChild)>>> = OnceLock::new();
+    RUNNING.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Register the child spawned for `id`. Returns false when the registry is
+/// unavailable, in which case the import simply cannot be cancelled.
+fn register_process(id: &str, pid: u32, child: CommandChild) -> bool {
+    running_processes()
+        .lock()
+        .map(|mut guard| {
+            guard.insert(id.to_string(), (pid, child));
+            true
+        })
+        .unwrap_or(false)
+}
+
+/// Drop our registration, but only while the entry is still ours: a cancel
+/// already removed it (before killing), or a newer import replaced it.
+fn unregister_process(id: &str, pid: u32) -> bool {
+    running_processes()
+        .lock()
+        .map(|mut guard| {
+            let ours = matches!(guard.get(id), Some((registered, _)) if *registered == pid);
+            if ours {
+                guard.remove(id);
+            }
+            ours
+        })
+        .unwrap_or(false)
+}
+
+/// Kill the sidecar currently running for an import. Safe to call for ids
+/// that are queued, finished, or unknown — it simply reports `false`.
+#[tauri::command]
+pub fn cancel_import(id: String) -> bool {
+    let removed = running_processes()
+        .lock()
+        .ok()
+        .and_then(|mut guard| guard.remove(&id));
+    match removed {
+        Some((_pid, child)) => child.kill().is_ok(),
+        None => false,
+    }
+}
+
+/// Result of a streamed sidecar run that exited on its own.
+struct SidecarOutcome {
+    success: bool,
+    /// Tail of stderr (plus `Error` events) for user-facing error messages.
+    stderr: String,
+}
+
+/// Keep the last N stderr lines so error reports stay small on verbose logs.
+const STDERR_TAIL_LINES: usize = 20;
+
+/// Emit a real progress event when the integer percent changed.
+fn emit_import_progress(
+    app: &AppHandle,
+    id: &str,
+    stage: &'static str,
+    percent: u8,
+    last: &mut Option<u8>,
+) {
+    if *last == Some(percent) {
+        return;
+    }
+    *last = Some(percent);
+    let _ = app.emit(
+        "import-progress",
+        ImportProgress {
+            id: id.to_string(),
+            stage,
+            percent: Some(percent),
+        },
+    );
+}
+
+/// Spawn a sidecar, register it for cancellation under `id`, and consume its
+/// output line by line (tauri-plugin-shell splits on `\n` / `\r`), emitting
+/// real progress along the way. `progress(line, is_stdout)` maps a line to a
+/// display percent, or None to ignore it.
+///
+/// Errors: spawn failures map to the usual sidecar guidance; when the process
+/// was killed via [`cancel_import`] the registration is gone by the time the
+/// stream ends, and `导入已取消` is returned.
+async fn run_sidecar_streamed(
+    app: &AppHandle,
+    id: &str,
+    name: &str,
+    stage: &'static str,
+    cmd: Command,
+    progress: impl Fn(&str, bool) -> Option<u8>,
+) -> Result<SidecarOutcome, String> {
+    let (mut rx, child) = cmd
+        .spawn()
+        .map_err(|e| sidecar_io_error(name, &e.to_string()))?;
+    let pid = child.pid();
+    let registered = register_process(id, pid, child);
+
+    let mut stderr_tail: VecDeque<String> = VecDeque::new();
+    let mut last_percent: Option<u8> = None;
+    let mut success = false;
+
+    while let Some(event) = rx.recv().await {
+        match event {
+            CommandEvent::Stdout(line) => {
+                let text = String::from_utf8_lossy(&line).to_string();
+                if let Some(percent) = progress(&text, true) {
+                    emit_import_progress(app, id, stage, percent, &mut last_percent);
+                }
+            }
+            CommandEvent::Stderr(line) => {
+                let text = String::from_utf8_lossy(&line).to_string();
+                if let Some(percent) = progress(&text, false) {
+                    emit_import_progress(app, id, stage, percent, &mut last_percent);
+                }
+                if !text.trim().is_empty() {
+                    stderr_tail.push_back(text);
+                    if stderr_tail.len() > STDERR_TAIL_LINES {
+                        stderr_tail.pop_front();
+                    }
+                }
+            }
+            CommandEvent::Error(err) => stderr_tail.push_back(err),
+            CommandEvent::Terminated(status) => {
+                success = status.code == Some(0);
+            }
+            _ => {}
+        }
+    }
+
+    if registered && !unregister_process(id, pid) {
+        // Our registration was removed by `cancel_import`, which killed us.
+        return Err("导入已取消".to_string());
+    }
+
+    Ok(SidecarOutcome {
+        success,
+        stderr: stderr_tail.into_iter().collect::<Vec<_>>().join("\n"),
+    })
+}
+
 /// yt-dlp argv that resolves metadata AND writes the cover thumbnail in one
 /// run, saving the frontend's second full page parse. `--print-json` implies
 /// simulate, which skips post-processing — `--no-simulate` overrides it so
@@ -220,9 +379,15 @@ pub async fn resolve_video(app: AppHandle, url: String) -> Result<VideoMeta, Str
 
 /// Download the best-audio stream locally, transcode it to Vorbis (Ogg), and
 /// return its absolute path. If a playable file is already cached, it is returned
-/// immediately.
+/// immediately. `duration_secs` (video length, when the frontend knows it) only
+/// feeds the transcode progress mapping.
 #[tauri::command]
-pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<String, String> {
+pub async fn download_audio(
+    app: AppHandle,
+    id: String,
+    url: String,
+    duration_secs: Option<f64>,
+) -> Result<String, String> {
     let cache_dir = app
         .path()
         .app_data_dir()
@@ -243,6 +408,7 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
     }
 
     // Reuse a raw download if present, otherwise fetch it with yt-dlp.
+    // The download runs streamed so it can be cancelled and report progress.
     let raw = if let Some(existing) = find_raw_download(&cache_dir, &id) {
         existing
     } else {
@@ -250,22 +416,25 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
         let out_template = cache_dir.join(format!("{}.%(ext)s", id));
         let out_template_str = out_template.to_string_lossy().to_string();
 
-        let output = sidecar
-            .args([
-                "-f",
-                "bestaudio/best",
-                "--no-playlist",
-                "--no-warnings",
-                "-o",
-                out_template_str.as_str(),
-                url.as_str(),
-            ])
-            .output()
-            .await
-            .map_err(|e| download_error(&sidecar_io_error("yt-dlp", &e.to_string())))?;
+        let cmd = sidecar.args([
+            "-f",
+            "bestaudio/best",
+            "--no-playlist",
+            "--no-warnings",
+            "--newline",
+            "--progress",
+            "-o",
+            out_template_str.as_str(),
+            url.as_str(),
+        ]);
+        let outcome =
+            run_sidecar_streamed(&app, &id, "yt-dlp", "download", cmd, |line, _stdout| {
+                parse_ytdlp_percent(line).map(map_download_percent)
+            })
+            .await?;
 
-        if !output.status.success() {
-            return Err(download_error(&String::from_utf8_lossy(&output.stderr)));
+        if !outcome.success {
+            return Err(download_error(&outcome.stderr));
         }
 
         find_existing(&cache_dir, &id).ok_or_else(|| "下载完成但找不到音频文件".to_string())?
@@ -274,7 +443,7 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
     // Transcode to Vorbis (Ogg) so WebKitGTK can decode it with base GStreamer plugins.
     // Fail loudly when ffmpeg is missing or transcode fails — do not return raw AAC
     // (Linux WebKitGTK typically plays that as silence with a frozen progress bar).
-    let playable = transcode_audio(&app, &raw, &cache_dir, &id)
+    let playable = transcode_audio(&app, &raw, &cache_dir, &id, duration_secs)
         .await
         .map_err(|e| transcode_error(&e))?;
     Ok(playable.to_string_lossy().to_string())
@@ -402,6 +571,38 @@ fn parse_ytdlp_json(stdout: &str, url: &str) -> Result<VideoMeta, String> {
     })
 }
 
+/// yt-dlp `--progress --newline` line → raw percent (0–100). Progress lines go
+/// to stderr and look like `[download]  42.3% of 5.00MiB at 1.00MiB/s`;
+/// informational lines like `[download] Destination: ...` yield no number.
+fn parse_ytdlp_percent(line: &str) -> Option<f64> {
+    let rest = line.trim().strip_prefix("[download]")?.trim_start();
+    let number: String = rest
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || *c == '.')
+        .collect();
+    if number.is_empty() {
+        return None;
+    }
+    number.parse::<f64>().ok()
+}
+
+/// ffmpeg `-progress` line → seconds of media processed so far. Despite the
+/// name, `out_time_ms` is reported in **microseconds**.
+fn parse_ffmpeg_out_time_secs(line: &str) -> Option<f64> {
+    let value = line.trim().strip_prefix("out_time_ms=")?.trim();
+    value.parse::<f64>().ok().map(|micros| micros / 1_000_000.0)
+}
+
+/// Map a raw yt-dlp percent (0–100) into the card's download span (25–85).
+fn map_download_percent(raw: f64) -> u8 {
+    (25.0 + (85.0 - 25.0) * (raw / 100.0).clamp(0.0, 1.0)).round() as u8
+}
+
+/// Map transcode position vs total into the card's transcode span (85–100).
+fn map_transcode_percent(done_secs: f64, total_secs: f64) -> u8 {
+    (85.0 + (100.0 - 85.0) * (done_secs / total_secs).clamp(0.0, 1.0)).round() as u8
+}
+
 /// Find a cached file whose stem equals `id` (any extension; used for covers).
 fn find_existing(dir: &Path, id: &str) -> Option<PathBuf> {
     std::fs::read_dir(dir).ok()?.flatten().find_map(|entry| {
@@ -483,11 +684,16 @@ fn transcode_temp_path(cache_dir: &Path, id: &str) -> PathBuf {
 }
 
 /// ffmpeg argv for AAC/raw → Vorbis Ogg. Always passes `-f ogg` so the muxer
-/// never depends on guessing from a temporary filename.
+/// never depends on guessing from a temporary filename. `-progress pipe:1` +
+/// `-nostats` stream machine-readable progress to stdout (`out_time_ms`, in
+/// microseconds) while silencing the human stats spam on stderr.
 fn ffmpeg_ogg_args(input: &str, output: &str) -> Vec<String> {
     [
         "-y",
         "-nostdin",
+        "-progress",
+        "pipe:1",
+        "-nostats",
         "-i",
         input,
         "-vn",
@@ -505,7 +711,15 @@ fn ffmpeg_ogg_args(input: &str, output: &str) -> Vec<String> {
 }
 /// Transcode a raw audio file to Vorbis in Ogg (`.ogg`) using the bundled ffmpeg
 /// sidecar. Writes `{id}.tmp.ogg` then renames so a failed run cannot cache junk.
-async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str) -> Result<PathBuf, String> {
+/// Runs streamed so it can be cancelled and report progress (when `duration_secs`
+/// is known).
+async fn transcode_audio(
+    app: &AppHandle,
+    raw: &Path,
+    cache_dir: &Path,
+    id: &str,
+    duration_secs: Option<f64>,
+) -> Result<PathBuf, String> {
     let target = playable_target(cache_dir, id);
     if target.is_file() {
         return Ok(target);
@@ -522,19 +736,35 @@ async fn transcode_audio(app: &AppHandle, raw: &Path, cache_dir: &Path, id: &str
     let tmp_str = tmp.to_string_lossy().to_string();
     let args = ffmpeg_ogg_args(&raw_str, &tmp_str);
 
-    let output = sidecar
-        .args(args.iter().map(String::as_str).collect::<Vec<_>>())
-        .output()
-        .await
-        .map_err(|e| {
+    let cmd = sidecar.args(args.iter().map(String::as_str).collect::<Vec<_>>());
+    let outcome = match run_sidecar_streamed(
+        app,
+        id,
+        "ffmpeg",
+        "transcode",
+        cmd,
+        move |line, is_stdout| {
+            if !is_stdout {
+                return None;
+            }
+            parse_ffmpeg_out_time_secs(line).and_then(|done| match duration_secs {
+                Some(total) if total > 0.0 => Some(map_transcode_percent(done, total)),
+                _ => None,
+            })
+        },
+    )
+    .await
+    {
+        Ok(outcome) => outcome,
+        Err(e) => {
             let _ = std::fs::remove_file(&tmp);
-            sidecar_io_error("ffmpeg", &e.to_string())
-        })?;
+            return Err(e);
+        }
+    };
 
-    if !output.status.success() || !tmp.is_file() {
+    if !outcome.success || !tmp.is_file() {
         let _ = std::fs::remove_file(&tmp);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let detail = stderr.trim();
+        let detail = outcome.stderr.trim();
         return Err(if detail.is_empty() {
             "ffmpeg 转码未写出 OGG 文件".to_string()
         } else {
@@ -660,6 +890,11 @@ mod tests {
         assert!(args.windows(2).any(|w| w[0] == "-f" && w[1] == "ogg"));
         assert_eq!(args.last().map(String::as_str), Some("/out.tmp.ogg"));
         assert!(!args.iter().any(|a| a.ends_with(".ogg.tmp")));
+        // Machine-readable progress on stdout, human stats silenced.
+        assert!(args
+            .windows(2)
+            .any(|w| w[0] == "-progress" && w[1] == "pipe:1"));
+        assert!(args.iter().any(|a| a == "-nostats"));
     }
 
     #[test]
@@ -687,6 +922,57 @@ mod tests {
 
         // URL is the last positional argument.
         assert_eq!(args.last().map(String::as_str), Some("https://b23.tv/abc"));
+    }
+
+    #[test]
+    fn parses_ytdlp_download_percent_lines() {
+        assert_eq!(
+            parse_ytdlp_percent("[download]  42.3% of 5.00MiB at 1.00MiB/s ETA 00:03"),
+            Some(42.3)
+        );
+        assert_eq!(
+            parse_ytdlp_percent("[download] 100% of 5.00MiB in 00:01"),
+            Some(100.0)
+        );
+        assert_eq!(
+            parse_ytdlp_percent("[download]   0.0% of ~ 3.00MiB at Unknown B/s"),
+            Some(0.0)
+        );
+        // Informational lines carry no leading percent.
+        assert_eq!(parse_ytdlp_percent("[download] Destination: BV123.m4a"), None);
+        assert_eq!(parse_ytdlp_percent("[download] Redirecting to another page"), None);
+        assert_eq!(parse_ytdlp_percent("garbage"), None);
+        assert_eq!(parse_ytdlp_percent(""), None);
+    }
+
+    #[test]
+    fn parses_ffmpeg_out_time_in_microseconds() {
+        assert_eq!(
+            parse_ffmpeg_out_time_secs("out_time_ms=12345678"),
+            Some(12.345678)
+        );
+        assert_eq!(parse_ffmpeg_out_time_secs("out_time_ms=0"), Some(0.0));
+        assert_eq!(
+            parse_ffmpeg_out_time_secs("out_time_ms=-1000"),
+            Some(-0.001)
+        );
+        assert_eq!(parse_ffmpeg_out_time_secs("progress=continue"), None);
+        assert_eq!(parse_ffmpeg_out_time_secs("out_time_ms=N/A"), None);
+        assert_eq!(parse_ffmpeg_out_time_secs(""), None);
+    }
+
+    #[test]
+    fn maps_progress_into_display_spans() {
+        // download 0..100 → 25..85
+        assert_eq!(map_download_percent(0.0), 25);
+        assert_eq!(map_download_percent(50.0), 55);
+        assert_eq!(map_download_percent(100.0), 85);
+        assert_eq!(map_download_percent(142.0), 85);
+        // transcode 0..total → 85..100
+        assert_eq!(map_transcode_percent(0.0, 100.0), 85);
+        assert_eq!(map_transcode_percent(50.0, 100.0), 93);
+        assert_eq!(map_transcode_percent(100.0, 100.0), 100);
+        assert_eq!(map_transcode_percent(120.0, 100.0), 100);
     }
 
     #[test]

@@ -26,7 +26,8 @@ pub fn run() {
             commands::download_audio,
             commands::fetch_cover,
             commands::audio_url,
-            commands::check_sidecars
+            commands::check_sidecars,
+            commands::cancel_import
         ])
         .setup(|app| {
             let show_item = MenuItem::with_id(app, "show", "显示", true, None::<&str>)?;
