@@ -1,5 +1,7 @@
 use serde::Serialize;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::process::Command;
 use tauri_plugin_shell::ShellExt;
@@ -49,8 +51,43 @@ fn open_sidecar(app: &AppHandle, name: &str) -> Result<Command, String> {
         .map_err(|_| sidecar_missing_hint(name))
 }
 
-/// Cheap `--version` / `-version` probe so missing binaries fail before download.
-async fn ensure_sidecar(app: &AppHandle, name: &str) -> Result<(), String> {
+/// Remembers which sidecars already answered a probe in this session so
+/// repeated imports stop paying the `--version` spawn cost. Only successes are
+/// remembered: a missing binary that is fetched later gets probed again.
+struct SidecarProbeCache {
+    ok: Mutex<HashSet<String>>,
+}
+
+impl SidecarProbeCache {
+    fn new() -> Self {
+        Self {
+            ok: Mutex::new(HashSet::new()),
+        }
+    }
+
+    /// Whether a previous probe of `name` succeeded this session.
+    fn check(&self, name: &str) -> bool {
+        self.ok
+            .lock()
+            .map(|guard| guard.contains(name))
+            .unwrap_or(false)
+    }
+
+    /// Record a successful probe of `name` for the rest of the session.
+    fn mark_ok(&self, name: &str) {
+        if let Ok(mut guard) = self.ok.lock() {
+            guard.insert(name.to_string());
+        }
+    }
+}
+
+fn sidecar_cache() -> &'static SidecarProbeCache {
+    static CACHE: OnceLock<SidecarProbeCache> = OnceLock::new();
+    CACHE.get_or_init(SidecarProbeCache::new)
+}
+
+/// Real `--version` / `-version` probe of a sidecar, always executed.
+async fn probe_sidecar(app: &AppHandle, name: &str) -> Result<(), String> {
     let cmd = open_sidecar(app, name)?;
     let probe: [&str; 1] = if name == "ffmpeg" {
         ["-version"]
@@ -64,6 +101,17 @@ async fn ensure_sidecar(app: &AppHandle, name: &str) -> Result<(), String> {
         .map_err(|e| sidecar_io_error(name, &e.to_string()))
 }
 
+/// Cheap probe so missing binaries fail before download; skips the spawn once
+/// the sidecar has already answered successfully this session.
+async fn ensure_sidecar(app: &AppHandle, name: &str) -> Result<(), String> {
+    if sidecar_cache().check(name) {
+        return Ok(());
+    }
+    probe_sidecar(app, name).await?;
+    sidecar_cache().mark_ok(name);
+    Ok(())
+}
+
 async fn ensure_sidecars(app: &AppHandle, names: &[&str]) -> Result<(), String> {
     for name in names {
         ensure_sidecar(app, name).await?;
@@ -72,11 +120,12 @@ async fn ensure_sidecars(app: &AppHandle, names: &[&str]) -> Result<(), String> 
 }
 
 /// Names of sidecars that cannot be launched (`yt-dlp` / `ffmpeg`).
+/// Diagnostics entry: always probes for real, never consults the cache.
 #[tauri::command]
 pub async fn check_sidecars(app: AppHandle) -> Result<Vec<String>, String> {
     let mut missing = Vec::new();
     for name in ["yt-dlp", "ffmpeg"] {
-        if let Err(e) = ensure_sidecar(&app, name).await {
+        if let Err(e) = probe_sidecar(&app, name).await {
             if e.contains("fetch-binaries.sh") || e.contains("无法启动 sidecar") {
                 missing.push(name.to_string());
             }
@@ -85,14 +134,42 @@ pub async fn check_sidecars(app: AppHandle) -> Result<Vec<String>, String> {
     Ok(missing)
 }
 
-/// Resolve metadata for a video URL via `yt-dlp -J`.
-#[tauri::command]
-pub async fn resolve_video(app: AppHandle, url: String) -> Result<VideoMeta, String> {
-    ensure_sidecars(&app, &["yt-dlp"]).await?;
-    let sidecar = open_sidecar(&app, "yt-dlp")?;
+/// yt-dlp argv that resolves metadata AND writes the cover thumbnail in one
+/// run, saving the frontend's second full page parse. `--print-json` implies
+/// simulate, which skips post-processing — `--no-simulate` overrides it so
+/// `--write-thumbnail` actually runs. The template uses `%(id)s` because the
+/// resolved id (e.g. from a b23.tv link) is unknown before extraction.
+fn resolve_video_args(url: &str, covers_dir: &Path) -> Vec<String> {
+    let out_template = covers_dir.join("%(id)s.%(ext)s");
+    let out_template_str = out_template.to_string_lossy().to_string();
+    [
+        "--no-simulate",
+        "--skip-download",
+        "--write-thumbnail",
+        "--no-playlist",
+        "--no-warnings",
+        "--print-json",
+        "-o",
+        out_template_str.as_str(),
+        url,
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect()
+}
 
+/// Resolve metadata via plain `-J` (no thumbnail). Fallback for yt-dlp builds
+/// that reject the combined metadata+thumbnail invocation.
+async fn resolve_video_metadata_only(app: &AppHandle, url: &str) -> Result<VideoMeta, String> {
+    let sidecar = open_sidecar(app, "yt-dlp")?;
     let output = sidecar
-        .args(["-J", "--no-playlist", "--skip-download", "--no-warnings", url.as_str()])
+        .args([
+            "-J",
+            "--no-playlist",
+            "--skip-download",
+            "--no-warnings",
+            url,
+        ])
         .output()
         .await
         .map_err(|e| sidecar_io_error("yt-dlp", &e.to_string()))?;
@@ -101,8 +178,44 @@ pub async fn resolve_video(app: AppHandle, url: String) -> Result<VideoMeta, Str
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    parse_ytdlp_json(&stdout, &url)
+    parse_ytdlp_json(&String::from_utf8_lossy(&output.stdout), url)
+}
+
+/// Resolve metadata for a video URL, writing the cover thumbnail as a side
+/// effect when the yt-dlp build supports it. Falls back to a metadata-only
+/// `-J` run when the combined invocation fails or writes no cover.
+#[tauri::command]
+pub async fn resolve_video(app: AppHandle, url: String) -> Result<VideoMeta, String> {
+    ensure_sidecars(&app, &["yt-dlp"]).await?;
+    let sidecar = open_sidecar(&app, "yt-dlp")?;
+
+    let covers_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("covers");
+    // Best effort: without the dir the thumbnail step fails and we fall back.
+    let _ = std::fs::create_dir_all(&covers_dir);
+
+    let args = resolve_video_args(&url, &covers_dir);
+    let output = sidecar
+        .args(args.iter().map(String::as_str).collect::<Vec<_>>())
+        .output()
+        .await
+        .map_err(|e| sidecar_io_error("yt-dlp", &e.to_string()))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if let Ok(meta) = parse_ytdlp_json(&stdout, &url) {
+            // The thumbnail step only ran if a cover file for the resolved id
+            // landed in the covers dir; otherwise retire to the plain `-J` run.
+            if !meta.id.is_empty() && find_existing(&covers_dir, &meta.id).is_some() {
+                return Ok(meta);
+            }
+        }
+    }
+
+    resolve_video_metadata_only(&app, &url).await
 }
 
 /// Download the best-audio stream locally, transcode it to Vorbis (Ogg), and
@@ -123,14 +236,14 @@ pub async fn download_audio(app: AppHandle, id: String, url: String) -> Result<S
     }
 
     // Fail before download/transcode so a missing sidecar is not an OS error.
-    if find_existing(&cache_dir, &id).is_some() {
+    if find_raw_download(&cache_dir, &id).is_some() {
         ensure_sidecars(&app, &["ffmpeg"]).await?;
     } else {
         ensure_sidecars(&app, &["yt-dlp", "ffmpeg"]).await?;
     }
 
     // Reuse a raw download if present, otherwise fetch it with yt-dlp.
-    let raw = if let Some(existing) = find_existing(&cache_dir, &id) {
+    let raw = if let Some(existing) = find_raw_download(&cache_dir, &id) {
         existing
     } else {
         let sidecar = open_sidecar(&app, "yt-dlp")?;
@@ -289,7 +402,7 @@ fn parse_ytdlp_json(stdout: &str, url: &str) -> Result<VideoMeta, String> {
     })
 }
 
-/// Find a cached file whose stem equals `id`.
+/// Find a cached file whose stem equals `id` (any extension; used for covers).
 fn find_existing(dir: &Path, id: &str) -> Option<PathBuf> {
     std::fs::read_dir(dir).ok()?.flatten().find_map(|entry| {
         let path = entry.path();
@@ -299,6 +412,35 @@ fn find_existing(dir: &Path, id: &str) -> Option<PathBuf> {
             None
         }
     })
+}
+
+/// Extensions eligible for raw-download reuse. Guards against treating
+/// arbitrary same-stem junk (`.part` resume files, logs, ...) as a cached
+/// download.
+const RAW_DOWNLOAD_EXTENSIONS: [&str; 10] = [
+    "m4a", "mp3", "webm", "opus", "ogg", "aac", "flac", "wav", "mp4", "m4v",
+];
+
+/// Find a cached file whose stem equals `id`, restricted to `extensions`.
+fn find_existing_with_extensions(dir: &Path, id: &str, extensions: &[&str]) -> Option<PathBuf> {
+    std::fs::read_dir(dir).ok()?.flatten().find_map(|entry| {
+        let path = entry.path();
+        let ext = path
+            .extension()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_ascii_lowercase());
+        let allowed = ext.is_some_and(|e| extensions.contains(&e.as_str()));
+        if allowed && path.is_file() && path.file_stem().and_then(|s| s.to_str()) == Some(id) {
+            Some(path)
+        } else {
+            None
+        }
+    })
+}
+
+/// The raw yt-dlp download for `id`, if a whitelisted container is cached.
+fn find_raw_download(dir: &Path, id: &str) -> Option<PathBuf> {
+    find_existing_with_extensions(dir, id, &RAW_DOWNLOAD_EXTENSIONS)
 }
 
 /// The transcoded Vorbis file for `id`, if it already exists on disk.
@@ -521,6 +663,33 @@ mod tests {
     }
 
     #[test]
+    fn resolve_video_args_writes_thumbnail_in_one_pass() {
+        let args = resolve_video_args("https://b23.tv/abc", Path::new("/covers"));
+        // --no-simulate must override --print-json's implicit simulate so the
+        // thumbnail post-processor actually runs.
+        assert!(args.iter().any(|a| a == "--no-simulate"));
+        assert!(args.iter().any(|a| a == "--write-thumbnail"));
+        assert!(args.iter().any(|a| a == "--print-json"));
+        assert!(args.iter().any(|a| a == "--skip-download"));
+        assert!(args.iter().any(|a| a == "--no-playlist"));
+
+        let o = args.iter().position(|a| a == "-o").expect("-o present");
+        let template = &args[o + 1];
+        let covers_prefix = Path::new("/covers").to_string_lossy().to_string();
+        assert!(
+            template.starts_with(&covers_prefix),
+            "template {template} must target the covers dir"
+        );
+        assert!(
+            template.contains("%(id)s.%(ext)s"),
+            "template {template} must keep the id field"
+        );
+
+        // URL is the last positional argument.
+        assert_eq!(args.last().map(String::as_str), Some("https://b23.tv/abc"));
+    }
+
+    #[test]
     fn find_playable_returns_none_when_absent() {
         assert_eq!(find_playable(Path::new("/nonexistent-dir"), "BV123"), None);
     }
@@ -532,6 +701,48 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("BV123.tmp.ogg"), b"partial").unwrap();
         assert_eq!(find_playable(&dir, "BV123"), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sidecar_probe_cache_remembers_only_marked_names() {
+        let cache = SidecarProbeCache::new();
+        assert!(!cache.check("yt-dlp"));
+        cache.mark_ok("yt-dlp");
+        assert!(cache.check("yt-dlp"));
+        assert!(!cache.check("ffmpeg"));
+    }
+
+    #[test]
+    fn find_raw_download_reuses_whitelisted_containers_only() {
+        let dir = std::env::temp_dir().join("zi-player-raw-ext");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // yt-dlp resume leftovers and unrelated junk must not be reused.
+        std::fs::write(dir.join("BV123.part"), b"partial").unwrap();
+        std::fs::write(dir.join("BV123.log"), b"junk").unwrap();
+        assert_eq!(find_raw_download(&dir, "BV123"), None);
+
+        std::fs::write(dir.join("BV123.m4a"), b"audio").unwrap();
+        assert_eq!(
+            find_raw_download(&dir, "BV123"),
+            Some(dir.join("BV123.m4a"))
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn find_existing_still_matches_cover_extensions() {
+        let dir = std::env::temp_dir().join("zi-player-cover-ext");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        std::fs::write(dir.join("BV123.jpg"), b"image").unwrap();
+        assert_eq!(find_existing(&dir, "BV123"), Some(dir.join("BV123.jpg")));
+        assert_eq!(find_raw_download(&dir, "BV123"), None);
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
