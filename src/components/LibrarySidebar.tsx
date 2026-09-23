@@ -35,7 +35,7 @@ export function LibrarySidebar({
           data-testid="library-all"
           onClick={() => onSelect("all")}
         >
-          <span className="library-item-name">全部唱片</span>
+          <span className="library-item-name">全部歌曲</span>
           <span className="library-item-count">{itemCount}</span>
         </button>
       </div>

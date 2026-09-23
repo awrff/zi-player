@@ -55,6 +55,12 @@ const item: VideoItem = {
   addedAt: 1,
 };
 
+const ready: VideoItem = {
+  ...item,
+  cachePath: "data:audio/wav;base64,xxx",
+  importStatus: "ready",
+};
+
 const itemB: VideoItem = {
   ...item,
   id: "BV1xx411c7mE",
@@ -72,7 +78,7 @@ beforeEach(() => {
   h.currentTime = 0;
   h.replay.mockResolvedValue(undefined);
   useVideoStore.setState({
-    items: [item],
+    items: [ready],
     currentId: null,
     playing: false,
     queueIds: [],
@@ -93,60 +99,35 @@ describe("isReusableAudioCache", () => {
 });
 
 describe("usePlayer playback errors", () => {
-  it("surfaces a Chinese error when download/transcode fails", async () => {
-    h.downloadAudio.mockRejectedValue("音频转码失败：无法启动 sidecar `ffmpeg`。未生成可播放的 OGG。");
+  it("refuses to play a song that is still importing", async () => {
+    const pending = { ...item, importStatus: "transcoding" as const };
+    useVideoStore.setState({ items: [pending] });
     const onError = vi.fn();
     const { result } = renderHook(() => usePlayer(onError));
 
     await act(async () => {
-      await result.current.toggle(item);
+      await result.current.toggle(pending);
     });
 
+    expect(h.downloadAudio).not.toHaveBeenCalled();
     expect(h.play).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledTimes(1);
-    const msg = onError.mock.calls[0][0] as string;
-    expect(msg).toMatch(/无法播放/);
-    expect(msg).toMatch(/测试曲目/);
-    expect(msg).toMatch(/转码失败|ffmpeg/);
-    expect(result.current.lastError).toBe(msg);
+    expect(useVideoStore.getState().currentId).toBeNull();
+    expect(onError).toHaveBeenCalledWith(expect.stringMatching(/导入中/));
   });
 
-  it("replaces opaque missing-sidecar native errors with fetch-binaries guidance", async () => {
-    h.downloadAudio.mockRejectedValue("Error: program not found (os error 2)");
+  it("does not download when cachePath is a stale AAC file", async () => {
+    const stale = { ...item, cachePath: "/data/audio/BV1xx411c7mD.m4a", importStatus: "queued" as const };
+    useVideoStore.setState({ items: [stale] });
     const onError = vi.fn();
     const { result } = renderHook(() => usePlayer(onError));
-
-    await act(async () => {
-      await result.current.toggle(item);
-    });
-
-    expect(h.play).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledTimes(1);
-    const msg = onError.mock.calls[0][0] as string;
-    expect(msg).toMatch(/无法播放/);
-    expect(msg).toMatch(/测试曲目/);
-    expect(msg).toMatch(/fetch-binaries/);
-    expect(msg).toMatch(/[\u4e00-\u9fff]/);
-    expect(msg).not.toMatch(/os error|program not found/i);
-    expect(result.current.lastError).toBe(msg);
-  });
-
-  it("re-fetches when cachePath is a stale AAC file instead of OGG", async () => {
-    h.downloadAudio.mockResolvedValue("/data/audio/BV1xx411c7mD.ogg");
-    h.audioUrl.mockResolvedValue("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
-    h.play.mockResolvedValue(undefined);
-    const onError = vi.fn();
-    const { result } = renderHook(() => usePlayer(onError));
-    const stale = { ...item, cachePath: "/data/audio/BV1xx411c7mD.m4a" };
 
     await act(async () => {
       await result.current.toggle(stale);
     });
 
-    expect(h.downloadAudio).toHaveBeenCalledWith(stale.id, stale.url);
-    expect(h.play).toHaveBeenCalledWith("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
-    expect(onError).not.toHaveBeenCalled();
-    expect(result.current.lastError).toBeNull();
+    expect(h.downloadAudio).not.toHaveBeenCalled();
+    expect(h.play).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalled();
   });
 
   it("reuses a data:audio cachePath used by mock/e2e", async () => {
@@ -154,10 +135,9 @@ describe("usePlayer playback errors", () => {
     h.play.mockResolvedValue(undefined);
     const onError = vi.fn();
     const { result } = renderHook(() => usePlayer(onError));
-    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
 
     await act(async () => {
-      await result.current.toggle(cached);
+      await result.current.toggle(ready);
     });
 
     expect(h.downloadAudio).not.toHaveBeenCalled();
@@ -166,14 +146,13 @@ describe("usePlayer playback errors", () => {
   });
 
   it("surfaces a Chinese error when HTMLAudioElement play() rejects", async () => {
-    h.downloadAudio.mockResolvedValue("/data/audio/BV1xx411c7mD.ogg");
-    h.audioUrl.mockResolvedValue("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
+    h.audioUrl.mockResolvedValue("data:audio/wav;base64,xxx");
     h.play.mockRejectedValue(new Error("NotSupportedError"));
     const onError = vi.fn();
     const { result } = renderHook(() => usePlayer(onError));
 
     await act(async () => {
-      await result.current.toggle(item);
+      await result.current.toggle(ready);
     });
 
     expect(onError).toHaveBeenCalledTimes(1);
@@ -185,22 +164,21 @@ describe("usePlayer playback errors", () => {
 });
 
 describe("usePlayer preparing", () => {
-  it("is true while download/transcode is in flight and clears on success play", async () => {
-    let finishDownload!: (path: string) => void;
-    h.downloadAudio.mockImplementation(
+  it("is true while audioUrl is in flight and clears on success play", async () => {
+    let finishUrl!: (src: string) => void;
+    h.audioUrl.mockImplementation(
       () =>
         new Promise<string>((resolve) => {
-          finishDownload = resolve;
+          finishUrl = resolve;
         }),
     );
-    h.audioUrl.mockResolvedValue("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
     h.play.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => usePlayer());
 
     let togglePromise!: Promise<void>;
     await act(async () => {
-      togglePromise = result.current.toggle(item);
+      togglePromise = result.current.toggle(ready);
     });
 
     expect(result.current.preparing).toBe(true);
@@ -208,22 +186,22 @@ describe("usePlayer preparing", () => {
     expect(h.play).not.toHaveBeenCalled();
 
     await act(async () => {
-      finishDownload("/data/audio/BV1xx411c7mD.ogg");
+      finishUrl("data:audio/wav;base64,xxx");
       await togglePromise;
     });
 
     expect(result.current.preparing).toBe(false);
-    expect(h.play).toHaveBeenCalledWith("http://127.0.0.1:9/audio/BV1xx411c7mD.ogg");
+    expect(h.play).toHaveBeenCalledWith("data:audio/wav;base64,xxx");
     expect(result.current.lastError).toBeNull();
   });
 
-  it("clears preparing on failure and keeps the #4 Chinese lastError", async () => {
-    h.downloadAudio.mockRejectedValue("音频转码失败：无法启动 sidecar `ffmpeg`。未生成可播放的 OGG。");
+  it("clears preparing on play failure and keeps the Chinese lastError", async () => {
+    h.audioUrl.mockRejectedValue("无法生成播放地址");
     const onError = vi.fn();
     const { result } = renderHook(() => usePlayer(onError));
 
     await act(async () => {
-      await result.current.toggle(item);
+      await result.current.toggle(ready);
     });
 
     expect(result.current.preparing).toBe(false);
@@ -231,7 +209,6 @@ describe("usePlayer preparing", () => {
     const msg = onError.mock.calls[0][0] as string;
     expect(msg).toMatch(/无法播放/);
     expect(msg).toMatch(/测试曲目/);
-    expect(msg).toMatch(/转码失败|ffmpeg/);
     expect(result.current.lastError).toBe(msg);
   });
 });
@@ -259,7 +236,7 @@ describe("usePlayer queue", () => {
 
   it("does not rebuild the queue when toggling the current track", async () => {
     readyToPlay();
-    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
+    const cached = { ...ready };
     useVideoStore.setState({
       items: [cached, itemB],
       currentId: cached.id,
@@ -278,8 +255,8 @@ describe("usePlayer queue", () => {
 
   it("plays the next queued track", async () => {
     readyToPlay();
-    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
-    const cachedB = { ...itemB, cachePath: "data:audio/wav;base64,yyy" };
+    const cached = { ...ready };
+    const cachedB = { ...itemB, cachePath: "data:audio/wav;base64,yyy", importStatus: "ready" as const };
     useVideoStore.setState({
       items: [cached, cachedB],
       currentId: cached.id,
@@ -298,7 +275,7 @@ describe("usePlayer queue", () => {
 
   it("restarts the current track when previous is pressed after 3s", async () => {
     h.currentTime = 12;
-    const cached = { ...item, cachePath: "data:audio/wav;base64,xxx" };
+    const cached = { ...ready };
     useVideoStore.setState({
       items: [cached],
       currentId: cached.id,
@@ -313,5 +290,65 @@ describe("usePlayer queue", () => {
 
     expect(h.seek).toHaveBeenCalledWith(0);
     expect(h.play).not.toHaveBeenCalled();
+  });
+
+  it("replaces the queue when playing a selected list that includes the current track", async () => {
+    readyToPlay();
+    const cached = { ...ready };
+    const cachedB = { ...itemB, cachePath: "data:audio/wav;base64,yyy", importStatus: "ready" as const };
+    useVideoStore.setState({
+      items: [cached, cachedB],
+      currentId: cached.id,
+      playing: true,
+      queueIds: [cached.id],
+    });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await expect(result.current.playSelected([cached, cachedB])).resolves.toBe(true);
+    });
+
+    expect(useVideoStore.getState().queueIds).toEqual([cached.id, cachedB.id]);
+    expect(h.play).toHaveBeenCalledWith("data:audio/wav;base64,xxx");
+  });
+
+  it("returns false when no selected song is playable", async () => {
+    const pending = { ...item, importStatus: "transcoding" as const };
+    useVideoStore.setState({ items: [pending] });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await expect(result.current.playSelected([pending])).resolves.toBe(false);
+    });
+
+    expect(useVideoStore.getState().queueIds).toEqual([]);
+    expect(h.play).not.toHaveBeenCalled();
+  });
+
+  it("skips an unplayable next track", async () => {
+    readyToPlay();
+    const cached = { ...ready };
+    const pending = { ...itemB, importStatus: "transcoding" as const };
+    const cachedC: VideoItem = {
+      ...itemB,
+      id: "BV1xx411c7mF",
+      title: "第三首",
+      cachePath: "data:audio/wav;base64,zzz",
+      importStatus: "ready",
+    };
+    useVideoStore.setState({
+      items: [cached, pending, cachedC],
+      currentId: cached.id,
+      playing: true,
+      queueIds: [cached.id, pending.id, cachedC.id],
+    });
+    const { result } = renderHook(() => usePlayer());
+
+    await act(async () => {
+      await result.current.playNext();
+    });
+
+    expect(h.play).toHaveBeenCalledWith("data:audio/wav;base64,zzz");
+    expect(useVideoStore.getState().currentId).toBe(cachedC.id);
   });
 });

@@ -8,8 +8,10 @@ export interface NativeMockControls {
   clipboard: string;
   hidden: boolean;
   showHandler: (() => void) | null;
-  /** Fixture metadata keyed by video id; used by resolveVideo. */
   fixtures: Record<string, VideoMeta>;
+  resolveDelay: number;
+  downloadDelay: number;
+  downloadGate: Promise<void> | null;
   emitShow(): void;
   reset(): void;
 }
@@ -52,16 +54,22 @@ function ensureControls(): NativeMockControls {
       clipboard: window.__preSetClipboard ?? "",
       hidden: false,
       showHandler: null,
-      fixtures,
-      emitShow() {
-        window.__nativeMock?.showHandler?.();
-      },
-      reset() {
-        const controls = window.__nativeMock!;
-        controls.clipboard = "";
-        controls.hidden = false;
-        controls.showHandler = null;
-      },
+        fixtures,
+        resolveDelay: 50,
+        downloadDelay: 30,
+        downloadGate: null,
+        emitShow() {
+          window.__nativeMock?.showHandler?.();
+        },
+        reset() {
+          const controls = window.__nativeMock!;
+          controls.clipboard = "";
+          controls.hidden = false;
+          controls.showHandler = null;
+          controls.resolveDelay = 50;
+          controls.downloadDelay = 30;
+          controls.downloadGate = null;
+        },
     };
   }
   return window.__nativeMock;
@@ -76,12 +84,14 @@ export const mockNative: Native = {
     if (!id) throw new Error(`Not a supported video URL: ${url}`);
     const fixture = controls.fixtures[id] ?? makeFixture(id, Object.keys(controls.fixtures).length + 1);
     // Small artificial delay so loading states are observable in tests.
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, controls.resolveDelay));
     return fixture;
   },
 
   async downloadAudio(_id: string): Promise<string> {
-    await new Promise((r) => setTimeout(r, 30));
+    const controls = ensureControls();
+    if (controls.downloadGate) await controls.downloadGate;
+    else await new Promise((r) => setTimeout(r, controls.downloadDelay));
     return silentWavDataUri();
   },
 

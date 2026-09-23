@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   nextId,
+  nextPlayableId,
   nextRepeatMode,
   playOrder,
   prevId,
+  prevPlayableId,
+  repeatLabel,
   shouldRestartOnPrev,
+  shuffleLabel,
   shuffledOrder,
   skipRepeat,
 } from "./playQueue";
@@ -43,6 +47,14 @@ describe("nextId / prevId", () => {
     expect(prevId(order, "a", "all")).toBe("c");
   });
 
+  it("skips unplayable ids", () => {
+    const playable = (id: string) => id !== "b";
+    expect(nextPlayableId(order, "a", "off", playable)).toBe("c");
+    expect(prevPlayableId(order, "c", "off", playable)).toBe("a");
+    expect(nextPlayableId(order, "c", "off", playable)).toBeNull();
+    expect(nextPlayableId(order, "c", "all", playable)).toBe("a");
+  });
+
   it("stays on the current track when repeat is one", () => {
     expect(nextId(order, "b", "one")).toBe("b");
   });
@@ -65,6 +77,14 @@ describe("repeat helpers", () => {
     expect(nextRepeatMode("off")).toBe("all");
     expect(nextRepeatMode("all")).toBe("one");
     expect(nextRepeatMode("one")).toBe("off");
+  });
+
+  it("labels the current mode, and the turn-on action when off", () => {
+    expect(shuffleLabel(false)).toBe("打开随机");
+    expect(shuffleLabel(true)).toBe("随机播放");
+    expect(repeatLabel("off")).toBe("打开列表循环");
+    expect(repeatLabel("all")).toBe("列表循环");
+    expect(repeatLabel("one")).toBe("单曲循环");
   });
 
   it("treats single-track repeat as off when skipping", () => {

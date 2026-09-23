@@ -24,7 +24,7 @@ export function AddVideoModal({ open, onClose }: AddVideoModalProps) {
     setLoading(false);
 
     if (result.ok) {
-      message.success(`已添加「${result.item.title}」`);
+      message.success("已开始导入");
       setUrl("");
       onClose();
     } else if (result.reason === "duplicate") {
@@ -44,7 +44,7 @@ export function AddVideoModal({ open, onClose }: AddVideoModalProps) {
           取消
         </Button>,
         <Button key="submit" type="primary" loading={loading} onClick={() => void submit()}>
-          解析并添加
+          添加
         </Button>,
       ]}
     >

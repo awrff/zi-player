@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Empty, Input, Modal } from "antd";
 import type { BoardViewMode, VideoItem } from "@/types";
 import type { TrackMenuHandlers } from "./trackContextMenu";
+import type { TrackSelectionView } from "./trackSelection";
 import { TrackList } from "./TrackList";
 import { Turntable } from "./Turntable";
 
@@ -13,6 +14,7 @@ interface BoardProps extends Omit<TrackMenuHandlers, "onMoveUp" | "onMoveDown" |
   emptyKind?: "library" | "playlist";
   onRename: (id: string, title: string) => void;
   onMove?: (item: VideoItem, dir: -1 | 1) => void;
+  selection?: TrackSelectionView;
 }
 
 export function Board({
@@ -23,6 +25,7 @@ export function Board({
   emptyKind = "library",
   onRename,
   onMove,
+  selection,
   ...handlers
 }: BoardProps) {
   const [renaming, setRenaming] = useState<VideoItem | null>(null);
@@ -44,11 +47,11 @@ export function Board({
     emptyKind === "playlist" ? (
       <div className="board-empty-guide" data-testid="board-empty-guide">
         <p>这个歌单还是空的</p>
-        <p>在「全部唱片」里右键唱片，选择「添加到歌单」</p>
+        <p>在「全部歌曲」里右键歌曲，选择「添加到歌单」</p>
       </div>
     ) : (
       <div className="board-empty-guide" data-testid="board-empty-guide">
-        <p>唱片架还是空的</p>
+        <p>还没有歌曲</p>
         <p>粘贴 B 站视频链接，或点击右上角「添加」把歌加进来</p>
       </div>
     );
@@ -63,14 +66,23 @@ export function Board({
           description={emptyGuide}
         />
       ) : viewMode === "list" ? (
-        <TrackList items={items} playingId={playingId} playing={playing} onMove={onMove} {...handlers} onRename={startRename} />
+        <TrackList
+          items={items}
+          playingId={playingId}
+          playing={playing}
+          onMove={onMove}
+          selection={selection}
+          {...handlers}
+          onRename={startRename}
+        />
       ) : (
-        <div className="board-grid" data-testid="board-grid" role="list" aria-label="唱片列表">
+        <div className="board-grid" data-testid="board-grid" role="list" aria-label="歌曲列表">
           {items.map((item, index) => (
             <div key={item.id} className="board-slot" data-testid="board-slot" role="listitem">
               <Turntable
                 item={item}
                 playing={playing && playingId === item.id}
+                selection={selection}
                 {...handlers}
                 onRename={startRename}
                 onMoveUp={onMove && index > 0 ? (target) => onMove(target, -1) : undefined}

@@ -6,7 +6,7 @@ test("shows an empty state when the board is empty", async ({ page }) => {
   await expect(page.getByTestId("board-empty")).toBeVisible();
   await expect(page.getByTestId("player-bar")).toBeVisible();
   await expect(page.getByTestId("library-sidebar")).toBeVisible();
-  await expect(page.getByTestId("library-all")).toContainText("全部唱片");
+  await expect(page.getByTestId("library-all")).toContainText("全部歌曲");
   await expect(page.getByTestId("library-new-playlist")).toBeEnabled();
 });
 
@@ -23,7 +23,7 @@ test("creates a playlist and switches between library views", async ({ page }) =
   await expect(page.getByTestId("board-empty-guide")).toContainText("这个歌单还是空的");
 
   await page.getByTestId("library-all").click();
-  await expect(page.getByTestId("library-heading")).toContainText("全部唱片");
+  await expect(page.getByTestId("library-heading")).toContainText("全部歌曲");
   await expect(page.getByTestId("turntable")).toHaveCount(3);
 
   await page.getByTestId("board-view-toggle").getByText("列表").click();

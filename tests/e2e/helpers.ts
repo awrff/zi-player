@@ -11,6 +11,7 @@ export interface SeedItem {
   cover: string;
   addedAt?: number;
   cachePath?: string;
+  importStatus?: VideoItem["importStatus"];
 }
 
 /** Navigate to the app with the given items pre-seeded in the persisted store. */
@@ -42,6 +43,7 @@ export const sampleItems: SeedItem[] = [
     duration: 180,
     cover: "data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><rect width='320' height='320' fill='%23e95420'/></svg>",
     cachePath: silentWav,
+    importStatus: "ready",
   },
   {
     id: "BV1xx411c7mE",
@@ -51,6 +53,7 @@ export const sampleItems: SeedItem[] = [
     duration: 241,
     cover: "data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><rect width='320' height='320' fill='%23333'/></svg>",
     cachePath: silentWav,
+    importStatus: "ready",
   },
   {
     id: "BV1xx411c7mF",
@@ -60,5 +63,6 @@ export const sampleItems: SeedItem[] = [
     duration: 95,
     cover: "data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><rect width='320' height='320' fill='%23555'/></svg>",
     cachePath: silentWav,
+    importStatus: "ready",
   },
 ];

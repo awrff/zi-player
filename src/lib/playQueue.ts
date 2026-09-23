@@ -30,6 +30,41 @@ export function nextId(order: string[], currentId: string | null, repeat: Repeat
   return repeat === "all" ? (order[0] ?? null) : null;
 }
 
+export function nextPlayableId(
+  order: string[],
+  currentId: string | null,
+  repeat: RepeatMode,
+  playable: (id: string) => boolean,
+): string | null {
+  if (order.length === 0) return null;
+  if (repeat === "one" && currentId && order.includes(currentId) && playable(currentId)) return currentId;
+  const start = currentId ? order.indexOf(currentId) : -1;
+  if (start < 0) return order.find(playable) ?? null;
+  const limit = repeat === "all" ? order.length : order.length - start - 1;
+  for (let step = 1; step <= limit; step++) {
+    const id = order[(start + step) % order.length];
+    if (id && playable(id)) return id;
+  }
+  return null;
+}
+
+export function prevPlayableId(
+  order: string[],
+  currentId: string | null,
+  repeat: RepeatMode,
+  playable: (id: string) => boolean,
+): string | null {
+  if (order.length === 0) return null;
+  const start = currentId ? order.indexOf(currentId) : -1;
+  if (start < 0) return order.find(playable) ?? null;
+  const limit = repeat === "all" ? order.length : start;
+  for (let step = 1; step <= limit; step++) {
+    const id = order[(start - step + order.length) % order.length];
+    if (id && playable(id)) return id;
+  }
+  return currentId && playable(currentId) ? currentId : null;
+}
+
 export function prevId(order: string[], currentId: string | null, repeat: RepeatMode): string | null {
   if (order.length === 0) return null;
   const index = currentId ? order.indexOf(currentId) : -1;
@@ -48,10 +83,14 @@ export function nextRepeatMode(current: RepeatMode): RepeatMode {
   return "off";
 }
 
+export function shuffleLabel(shuffle: boolean): string {
+  return shuffle ? "随机播放" : "打开随机";
+}
+
 export function repeatLabel(mode: RepeatMode): string {
   if (mode === "all") return "列表循环";
   if (mode === "one") return "单曲循环";
-  return "关闭循环";
+  return "打开列表循环";
 }
 
 export function skipRepeat(repeat: RepeatMode): RepeatMode {

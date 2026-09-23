@@ -12,6 +12,8 @@ const items: VideoItem[] = [
     duration: 125,
     cover: "https://example.com/a.jpg",
     addedAt: 1,
+    cachePath: "data:audio/wav;base64,a",
+    importStatus: "ready",
   },
   {
     id: "BV2",
@@ -21,6 +23,8 @@ const items: VideoItem[] = [
     duration: 90,
     cover: "https://example.com/b.jpg",
     addedAt: 2,
+    cachePath: "data:audio/wav;base64,b",
+    importStatus: "ready",
   },
 ];
 
@@ -46,5 +50,30 @@ describe("TrackList", () => {
     fireEvent.contextMenu(screen.getAllByTestId("track-row")[1]);
     fireEvent.click(await screen.findByRole("menuitem", { name: "上移" }));
     expect(onMove).toHaveBeenCalledWith(items[1], -1);
+  });
+
+  it("toggles selection instead of playing while managing", () => {
+    const onToggle = vi.fn();
+    const onSelectToggle = vi.fn();
+    const onSelectClick = vi.fn(() => "select" as const);
+    render(
+      <TrackList
+        items={items}
+        playingId={null}
+        playing={false}
+        onToggle={onToggle}
+        onRename={() => {}}
+        selection={{
+          selecting: true,
+          selectedIds: new Set(["BV1"]),
+          onSelectClick,
+          onSelectToggle,
+        }}
+      />,
+    );
+    fireEvent.click(screen.getAllByTestId("track-row")[0]);
+    expect(onSelectClick).toHaveBeenCalled();
+    expect(onToggle).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId("track-row")[0]).toHaveAttribute("data-selected");
   });
 });

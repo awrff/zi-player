@@ -12,6 +12,8 @@ function makeItems(n: number): VideoItem[] {
     duration: 120,
     cover: "https://example.com/cover.jpg",
     addedAt: i,
+    cachePath: "data:audio/wav;base64,x",
+    importStatus: "ready" as const,
   }));
 }
 
@@ -19,7 +21,7 @@ describe("Board", () => {
   it("shows Chinese empty-board guidance when there are no items", () => {
     render(<Board items={[]} playingId={null} playing={false} onToggle={() => {}} onDelete={() => {}} onRename={() => {}} />);
     expect(screen.getByTestId("board-empty")).toBeInTheDocument();
-    expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("唱片架还是空的");
+    expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("还没有歌曲");
     expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("粘贴 B 站视频链接");
     expect(screen.getByTestId("board-empty-guide")).toHaveTextContent("添加");
   });

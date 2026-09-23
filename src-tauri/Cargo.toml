@@ -2,6 +2,7 @@
 name = "zi-player"
 version = "0.3.0"
 description = "Video links as a spinning record board (audio-only playback)"
+license = "MIT"
 authors = ["Jayden"]
 edition = "2021"
 rust-version = "1.85"
