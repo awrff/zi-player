@@ -23,6 +23,16 @@ export interface ParsedVideo {
   url: string;
 }
 
+/** A space collection/series page (`space.bilibili.com/{mid}/channel/...`). */
+export interface ParsedSpaceList {
+  /** `"collection"` = collectiondetail, `"series"` = seriesdetail. */
+  kind: "collection" | "series";
+  mid: string;
+  sid: string;
+  /** Canonical space list URL. */
+  url: string;
+}
+
 /** Normalize a URL object + return the video id if it is a supported video page. */
 function parseVideoUrl(raw: string): ParsedVideo | null {
   let url: URL;
@@ -80,7 +90,43 @@ export function normalizeVideoUrl(text: string): string | null {
   return parseVideoUrl(text)?.url ?? null;
 }
 
-/** Find the first supported video URL embedded anywhere in a block of text. */
+/** Parse a space collection/series page URL, or null. */
+export function parseSpaceList(text: string): ParsedSpaceList | null {
+  let url: URL;
+  try {
+    url = new URL(text.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return null;
+  }
+  if (url.hostname.toLowerCase() !== "space.bilibili.com") {
+    return null;
+  }
+  const match = url.pathname.match(/^\/(\d+)\/channel\/(collectiondetail|seriesdetail)\/?$/i);
+  if (!match) {
+    return null;
+  }
+  const sid = url.searchParams.get("sid");
+  if (!sid || !/^\d+$/.test(sid)) {
+    return null;
+  }
+  const page = match[2].toLowerCase();
+  return {
+    kind: page === "seriesdetail" ? "series" : "collection",
+    mid: match[1],
+    sid,
+    url: `https://space.bilibili.com/${match[1]}/channel/${page}?sid=${sid}`,
+  };
+}
+
+/** True when the text is a space collection/series URL. */
+export function isSpaceListUrl(text: string): boolean {
+  return parseSpaceList(text) !== null;
+}
+
+/** Find the first supported video or space-list URL embedded in a text block. */
 export function findVideoUrlInText(text: string): string | null {
   const candidate = text.match(/https?:\/\/[^\s"'<>，。！？【】（）]+/gi);
   if (!candidate) return null;
@@ -89,6 +135,9 @@ export function findVideoUrlInText(text: string): string | null {
     const cleaned = raw.replace(/[),.;:!?]+$/, "");
     if (isVideoUrl(cleaned)) {
       return normalizeVideoUrl(cleaned);
+    }
+    if (isSpaceListUrl(cleaned)) {
+      return parseSpaceList(cleaned)?.url ?? null;
     }
   }
   return null;

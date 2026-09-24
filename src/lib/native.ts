@@ -1,4 +1,4 @@
-import type { VideoMeta } from "@/types";
+import type { CollectionProbe, ImportProgressEvent, VideoMeta } from "@/types";
 import { mockNative } from "./native.mock";
 import { realNative } from "./native.real";
 
@@ -15,8 +15,19 @@ export interface Native {
   /** Resolve video metadata (title / cover / duration ...) for a video URL. */
   resolveVideo(url: string): Promise<VideoMeta>;
 
-  /** Download the best-audio stream locally and return its absolute file path. */
-  downloadAudio(id: string, url: string): Promise<string>;
+  /**
+   * Probe a Bilibili URL for 选集 info (multi-P pages, ugc_season collections,
+   * space collection/series lists). Rejects with a user-facing message when
+   * the probe fails; callers then import the URL as a single video.
+   */
+  probeVideoCollection(url: string): Promise<CollectionProbe>;
+
+  /**
+   * Download the best-audio stream locally, transcode it, and return the
+   * cached file's absolute path. `durationSecs` (when known) only feeds the
+   * transcode progress mapping.
+   */
+  downloadAudio(id: string, url: string, durationSecs?: number): Promise<string>;
 
   /** Return a playable `http://127.0.0.1:<port>/...` URL for a cached audio file. */
   audioUrl(path: string): Promise<string>;
@@ -26,6 +37,12 @@ export interface Native {
 
   /** Names of missing sidecars (`yt-dlp` / `ffmpeg`). Empty when both can launch. */
   checkSidecars(): Promise<string[]>;
+
+  /** Kill the sidecar processes registered for an in-flight import. */
+  cancelImport(id: string): Promise<void>;
+
+  /** Subscribe to real import progress events; returns an unsubscribe function. */
+  onImportProgress(cb: (progress: ImportProgressEvent) => void): () => void;
 
   /** Read the current system clipboard as text. */
   readClipboard(): Promise<string>;
