@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { VideoMeta } from "@/types";
+import type { CollectionEpisode, VideoMeta } from "@/types";
 
 type ProgressCb = (event: { id: string; stage: "download" | "transcode"; percent?: number | null }) => void;
 
@@ -24,6 +24,7 @@ vi.mock("./native", () => ({
 
 import {
   cancelImport,
+  enqueueEpisodes,
   enqueueImport,
   resetImportQueue,
   resumeIncompleteImports,
@@ -180,6 +181,69 @@ describe("importQueue", () => {
     resumeIncompleteImports();
     await vi.waitFor(() => {
       expect(useVideoStore.getState().items[0].importStatus).toBe("ready");
+    });
+  });
+});
+
+describe("enqueueEpisodes", () => {
+  const pageEp = (page: number, title: string, duration: number): CollectionEpisode => ({
+    index: page,
+    bvid: "BV1gq4y167mq",
+    page,
+    title,
+    duration,
+  });
+
+  beforeEach(() => {
+    h.resolveVideo.mockReset();
+    h.downloadAudio.mockReset();
+    h.downloadAudio.mockResolvedValue("/data/audio/BV.ogg");
+  });
+
+  it("enqueues multi-P episodes as ?p=N jobs with prefilled metadata", async () => {
+    h.resolveVideo.mockImplementation(async (url: string) => {
+      const match = url.match(/video\/(BV\w+)\?p=(\d+)/)!;
+      return meta(`${match[1]}_p${match[2]}`);
+    });
+
+    const result = enqueueEpisodes([pageEp(1, "p01 默", 295), pageEp(2, "p02 Melody", 254)]);
+    expect(result).toEqual({ queued: 2, skipped: 0 });
+
+    const items = useVideoStore.getState().items;
+    expect(items.map((item) => item.id)).toEqual(["BV1gq4y167mq_p1", "BV1gq4y167mq_p2"]);
+    expect(items.map((item) => item.title)).toEqual(["p01 默", "p02 Melody"]);
+    expect(items.map((item) => item.duration)).toEqual([295, 254]);
+    expect(h.resolveVideo).toHaveBeenCalledWith("https://www.bilibili.com/video/BV1gq4y167mq?p=1");
+
+    await vi.waitFor(() => {
+      expect(useVideoStore.getState().items.every((item) => item.importStatus === "ready")).toBe(true);
+    });
+  });
+
+  it("skips episodes already on the board", async () => {
+    h.resolveVideo.mockImplementation(async (url: string) => {
+      const match = url.match(/video\/(BV\w+)\?p=(\d+)/)!;
+      return meta(`${match[1]}_p${match[2]}`);
+    });
+    useVideoStore.getState().addVideo(meta("BV1gq4y167mq_p2"));
+
+    const result = enqueueEpisodes([pageEp(1, "p01 默", 295), pageEp(2, "p02 Melody", 254)]);
+    expect(result).toEqual({ queued: 1, skipped: 1 });
+    expect(useVideoStore.getState().items).toHaveLength(2);
+  });
+
+  it("enqueues list episodes as plain BV jobs", async () => {
+    h.resolveVideo.mockImplementation(async (url: string) => meta(url.split("/").pop()!));
+
+    const result = enqueueEpisodes([
+      { index: 1, bvid: "BV1KKFSzYERF", title: "懒人必看", duration: 182 },
+      { index: 2, bvid: "BV1abc0000000", title: "第二集", duration: 60 },
+    ]);
+    expect(result).toEqual({ queued: 2, skipped: 0 });
+    expect(useVideoStore.getState().items.map((item) => item.id)).toEqual(["BV1KKFSzYERF", "BV1abc0000000"]);
+
+    await vi.waitFor(() => {
+      expect(useVideoStore.getState().items.every((item) => item.importStatus === "ready")).toBe(true);
     });
   });
 });

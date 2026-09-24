@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   extractVideoId,
   findVideoUrlInText,
+  isSpaceListUrl,
   isVideoUrl,
   looksLikeUrl,
   normalizeVideoUrl,
+  parseSpaceList,
 } from "./parser";
 
 describe("isVideoUrl", () => {
@@ -76,6 +78,36 @@ describe("looksLikeUrl", () => {
   });
 });
 
+describe("parseSpaceList", () => {
+  it("parses a collectiondetail URL", () => {
+    expect(parseSpaceList("https://space.bilibili.com/2142762/channel/collectiondetail?sid=57445&spm=x")).toEqual({
+      kind: "collection",
+      mid: "2142762",
+      sid: "57445",
+      url: "https://space.bilibili.com/2142762/channel/collectiondetail?sid=57445",
+    });
+  });
+
+  it("parses a seriesdetail URL", () => {
+    expect(parseSpaceList("https://space.bilibili.com/1958703906/channel/seriesdetail?sid=547718&ctype=0")?.kind).toBe(
+      "series",
+    );
+  });
+
+  it("rejects incomplete or unrelated URLs", () => {
+    expect(parseSpaceList("https://space.bilibili.com/2142762/channel/collectiondetail")).toBeNull();
+    expect(parseSpaceList("https://space.bilibili.com/2142762/channel/collectiondetail?sid=abc")).toBeNull();
+    expect(parseSpaceList("https://space.bilibili.com/abc/channel/collectiondetail?sid=1")).toBeNull();
+    expect(parseSpaceList("https://space.bilibili.com/2142762/uploads")).toBeNull();
+    expect(parseSpaceList("https://www.bilibili.com/video/BV1xx411c7mD")).toBeNull();
+  });
+
+  it("isSpaceListUrl mirrors parseSpaceList", () => {
+    expect(isSpaceListUrl("https://space.bilibili.com/2142762/channel/collectiondetail?sid=57445")).toBe(true);
+    expect(isSpaceListUrl("https://www.bilibili.com/video/BV1xx411c7mD")).toBe(false);
+  });
+});
+
 describe("findVideoUrlInText", () => {
   it("finds a video URL embedded in text", () => {
     const text = "看这个 https://www.bilibili.com/video/BV1xx411c7mD 很赞";
@@ -89,5 +121,10 @@ describe("findVideoUrlInText", () => {
 
   it("ignores unsupported URLs in text", () => {
     expect(findVideoUrlInText("see https://example.com and more")).toBeNull();
+  });
+
+  it("finds a space collection URL embedded in text", () => {
+    const text = "合集：https://space.bilibili.com/2142762/channel/collectiondetail?sid=57445&spm=x 很赞";
+    expect(findVideoUrlInText(text)).toBe("https://space.bilibili.com/2142762/channel/collectiondetail?sid=57445");
   });
 });

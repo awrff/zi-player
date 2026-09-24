@@ -63,6 +63,27 @@ export interface ImportProgressEvent {
   percent?: number | null;
 }
 
+/** One selectable episode of a probed collection (选集). */
+export interface CollectionEpisode {
+  /** 1-based position within the probe (equals `page` for multi-P). */
+  index: number;
+  /** BV id of the episode (the parent video's BV for multi-P pages). */
+  bvid: string;
+  /** 1-based page number; only present for multi-P episodes. */
+  page?: number | null;
+  title: string;
+  /** Duration in seconds (0 when unknown). */
+  duration: number;
+}
+
+/** Result of probing a URL for collection info (`probe_video_collection`). */
+export interface CollectionProbe {
+  /** `"single"` (import as-is), `"multi_p"` (video's own 分P), `"list"` (合集/系列). */
+  kind: "single" | "multi_p" | "list";
+  title: string;
+  episodes: CollectionEpisode[];
+}
+
 /** Result of importing a URL into the board. */
 export type ImportResult =
   | { ok: true; item: VideoItem }

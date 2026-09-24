@@ -5,7 +5,7 @@ import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import type { Native } from "./native";
-import type { ImportProgressEvent, VideoMeta } from "@/types";
+import type { CollectionProbe, ImportProgressEvent, VideoMeta } from "@/types";
 
 let pendingUpdate: Update | null = null;
 
@@ -14,6 +14,10 @@ export const realNative: Native = {
 
   async resolveVideo(url: string): Promise<VideoMeta> {
     return invoke<VideoMeta>("resolve_video", { url });
+  },
+
+  async probeVideoCollection(url: string): Promise<CollectionProbe> {
+    return invoke<CollectionProbe>("probe_video_collection", { url });
   },
 
   async downloadAudio(id: string, url: string, durationSecs?: number): Promise<string> {

@@ -1,6 +1,6 @@
 import type { Native } from "./native";
-import type { ImportProgressEvent, VideoMeta } from "@/types";
-import { extractVideoId } from "./parser";
+import type { CollectionProbe, ImportProgressEvent, VideoMeta } from "@/types";
+import { extractVideoId, isSpaceListUrl, parseSpaceList } from "./parser";
 import { silentWavDataUri } from "./silentWav";
 
 /** Control surface exposed to Playwright via `window.__nativeMock`. */
@@ -12,6 +12,11 @@ export interface NativeMockControls {
   resolveDelay: number;
   downloadDelay: number;
   downloadGate: Promise<void> | null;
+  /** Collection probe responses keyed by video id, space URL, or raw URL. */
+  probeFixtures: Record<string, CollectionProbe>;
+  probeDelay: number;
+  /** When set, probeVideoCollection rejects with this message. */
+  probeError: string | null;
   emitShow(): void;
   reset(): void;
 }
@@ -58,6 +63,9 @@ function ensureControls(): NativeMockControls {
         resolveDelay: 50,
         downloadDelay: 30,
         downloadGate: null,
+        probeFixtures: {},
+        probeDelay: 30,
+        probeError: null,
         emitShow() {
           window.__nativeMock?.showHandler?.();
         },
@@ -69,6 +77,9 @@ function ensureControls(): NativeMockControls {
           controls.resolveDelay = 50;
           controls.downloadDelay = 30;
           controls.downloadGate = null;
+          controls.probeFixtures = {};
+          controls.probeDelay = 30;
+          controls.probeError = null;
         },
     };
   }
@@ -86,6 +97,16 @@ export const mockNative: Native = {
     // Small artificial delay so loading states are observable in tests.
     await new Promise((r) => setTimeout(r, controls.resolveDelay));
     return fixture;
+  },
+
+  async probeVideoCollection(url: string): Promise<CollectionProbe> {
+    const controls = ensureControls();
+    await new Promise((r) => setTimeout(r, controls.probeDelay));
+    if (controls.probeError) throw new Error(controls.probeError);
+    const probeKey = extractVideoId(url) ?? (isSpaceListUrl(url) ? parseSpaceList(url)?.url : null) ?? url;
+    return (
+      controls.probeFixtures[probeKey] ?? { kind: "single", title: probeKey, episodes: [] }
+    );
   },
 
   async downloadAudio(_id: string, _url?: string, _durationSecs?: number): Promise<string> {

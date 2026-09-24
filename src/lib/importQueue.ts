@@ -4,7 +4,7 @@ import { native } from "./native";
 import { extractVideoId, isVideoUrl, normalizeVideoUrl } from "./parser";
 import { formatSidecarGuidance } from "./sidecarError";
 import { useVideoStore } from "@/store/videoStore";
-import type { ImportResult, ImportStatus } from "@/types";
+import type { CollectionEpisode, ImportResult, ImportStatus } from "@/types";
 
 const STAGE_SPAN: Record<"resolving" | "transcoding", { start: number; end: number; ms: number }> = {
   resolving: { start: 0, end: 25, ms: 8000 },
@@ -77,6 +77,48 @@ export function enqueueImport(rawUrl: string): ImportResult {
   queueId(item.id);
   void pump();
   return { ok: true, item };
+}
+
+export interface EpisodeEnqueueResult {
+  queued: number;
+  skipped: number;
+}
+
+/** Enqueue the selected episodes of a probed collection. Multi-P episodes
+ * become `?p=N` jobs keyed `BVxxx_pN` — the same id yt-dlp later resolves, so
+ * the resolve step never retargets them; list episodes are separate BVs.
+ * Titles and durations are prefilled from the probe so cards are meaningful
+ * while queued. Already-present ids are skipped, not errors. */
+export function enqueueEpisodes(selected: CollectionEpisode[]): EpisodeEnqueueResult {
+  let queued = 0;
+  let skipped = 0;
+  for (const ep of selected) {
+    const id = ep.page != null ? `${ep.bvid}_p${ep.page}` : ep.bvid;
+    const url =
+      ep.page != null
+        ? `https://www.bilibili.com/video/${ep.bvid}?p=${ep.page}`
+        : `https://www.bilibili.com/video/${ep.bvid}`;
+    if (useVideoStore.getState().has(id)) {
+      skipped += 1;
+      continue;
+    }
+    const item = useVideoStore.getState().addVideo({
+      id,
+      url,
+      title: ep.title,
+      uploader: "",
+      duration: ep.duration,
+      cover: "",
+    });
+    if (!item) {
+      skipped += 1;
+      continue;
+    }
+    queueId(item.id);
+    queued += 1;
+  }
+  if (queued > 0) void pump();
+  return { queued, skipped };
 }
 
 export function retryImport(id: string): void {

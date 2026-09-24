@@ -1,4 +1,4 @@
-import type { ImportProgressEvent, VideoMeta } from "@/types";
+import type { CollectionProbe, ImportProgressEvent, VideoMeta } from "@/types";
 import { mockNative } from "./native.mock";
 import { realNative } from "./native.real";
 
@@ -14,6 +14,13 @@ export interface Native {
 
   /** Resolve video metadata (title / cover / duration ...) for a video URL. */
   resolveVideo(url: string): Promise<VideoMeta>;
+
+  /**
+   * Probe a Bilibili URL for 选集 info (multi-P pages, ugc_season collections,
+   * space collection/series lists). Rejects with a user-facing message when
+   * the probe fails; callers then import the URL as a single video.
+   */
+  probeVideoCollection(url: string): Promise<CollectionProbe>;
 
   /**
    * Download the best-audio stream locally, transcode it, and return the
