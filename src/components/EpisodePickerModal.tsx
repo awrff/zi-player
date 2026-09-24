@@ -99,7 +99,7 @@ export function EpisodePickerModal({ open, probe, onClose, onEnqueued }: Episode
           清空
         </Button>
       </Space.Compact>
-      <div style={{ maxHeight: 380, overflowY: "auto" }}>
+      <div style={{ maxHeight: 380, overflowY: "auto", scrollbarGutter: "stable", paddingRight: 12 }}>
         {visible.map((ep) => (
           <div key={ep.index} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
             <Checkbox
