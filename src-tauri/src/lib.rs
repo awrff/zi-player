@@ -1,4 +1,5 @@
 mod audio_server;
+mod bilibili;
 mod commands;
 
 use tauri::{
@@ -23,6 +24,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::resolve_video,
+            commands::probe_video_collection,
             commands::download_audio,
             commands::fetch_cover,
             commands::audio_url,

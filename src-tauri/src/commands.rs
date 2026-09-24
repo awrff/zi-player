@@ -340,6 +340,15 @@ async fn resolve_video_metadata_only(app: &AppHandle, url: &str) -> Result<Video
     parse_ytdlp_json(&String::from_utf8_lossy(&output.stdout), url)
 }
 
+/// Probe a URL for "选集" info: the video's own pages (分P), a `ugc_season`
+/// collection, or a space collection/series page. Pure HTTP — no sidecars.
+/// Failures carry a user-facing message; the frontend degrades to importing
+/// the URL as a single video.
+#[tauri::command]
+pub async fn probe_video_collection(url: String) -> Result<crate::bilibili::CollectionProbe, String> {
+    crate::bilibili::probe(&url).await
+}
+
 /// Resolve metadata for a video URL, writing the cover thumbnail as a side
 /// effect when the yt-dlp build supports it. Falls back to a metadata-only
 /// `-J` run when the combined invocation fails or writes no cover.
