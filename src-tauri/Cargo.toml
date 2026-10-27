@@ -1,6 +1,6 @@
 [package]
 name = "zi-player"
-version = "0.3.2"
+version = "0.3.3"
 description = "Video links as a spinning record board (audio-only playback)"
 license = "MIT"
 authors = ["Jayden"]
