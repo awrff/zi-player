@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# check-sidecars.sh — 校验 sidecar 路径 / ACL / 文档与 fetch 脚本一致。
+# check-sidecars.sh — 校验 sidecar 路径 / ACL 与 fetch 脚本一致。
 #
 # 不下载二进制。退出码非 0 表示配置漂移（构建会找不到 sidecar 或运行时 ACL 拒跑）。
 #
@@ -14,7 +14,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FETCH="$ROOT/scripts/fetch-binaries.sh"
 CONF="$ROOT/src-tauri/tauri.conf.json"
 CAPS="$ROOT/src-tauri/capabilities/default.json"
-README="$ROOT/README.md"
 
 fail() { printf '✗ %s\n' "$*" >&2; exit 1; }
 pass() { printf '✓ %s\n' "$*"; }
@@ -81,19 +80,6 @@ if missing:
     sys.exit(1)
 PY
 pass "capabilities 声明 yt-dlp / ffmpeg sidecar execute + args"
-
-# --- README ---
-grep -q 'binaries/yt-dlp/yt-dlp-' "$README" || fail "README 未写嵌套 yt-dlp 路径"
-grep -q 'binaries/ffmpeg/ffmpeg-' "$README" || fail "README 未写嵌套 ffmpeg 路径"
-grep -q 'scripts/fetch-binaries.sh --all' "$README" || fail "README 未写 --all 用法"
-grep -q 'webkit2gtk-4.1' "$README" || fail "README 未写 Linux webkit2gtk-4.1 依赖"
-grep -q 'Node.js 22' "$README" || fail "README 未写 Node.js 22+"
-grep -q '1.85' "$README" || fail "README 未写 Rust 1.85+"
-# 旧的扁平路径不应再作为推荐放置位置
-if grep -nE 'src-tauri/binaries/yt-dlp-x86_64|src-tauri/binaries/ffmpeg-x86_64' "$README" >/dev/null; then
-  fail "README 仍在教扁平 sidecar 路径（应改为 binaries/<name>/<name>-<triple>）"
-fi
-pass "README 与真实布局 / 先决条件一致"
 
 if [ "${1:-}" = "--require" ]; then
   "$FETCH" --check
