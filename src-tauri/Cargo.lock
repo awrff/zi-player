@@ -5695,7 +5695,7 @@ dependencies = [
 
 [[package]]
 name = "zi-player"
-version = "0.2.0"
+version = "0.3.2"
 dependencies = [
  "reqwest 0.12.28",
  "serde",
