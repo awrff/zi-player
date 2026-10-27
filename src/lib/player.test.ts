@@ -2,13 +2,23 @@ import { describe, expect, it, vi } from "vitest";
 import { AudioPlayer, createAudioPlayer } from "./player";
 
 class FakeAudio {
-  src = "";
+  private source = "";
   currentTime = 0;
   duration = 0;
   paused = true;
   ended = false;
   volume = 1;
   private listeners = new Map<string, Set<() => void>>();
+
+  get src() {
+    return this.source;
+  }
+
+  /** Mimic the browser: canonicalize separators and reset playback on a new source. */
+  set src(value: string) {
+    this.source = value.replace(/\\/g, "/");
+    this.currentTime = 0;
+  }
 
   addEventListener(type: string, cb: () => void) {
     if (!this.listeners.has(type)) this.listeners.set(type, new Set());
@@ -53,6 +63,28 @@ describe("AudioPlayer", () => {
     fake.currentTime = 42;
     await player.play("mock://a");
     expect(fake.currentTime).toBe(42);
+  });
+
+  it("resumes a Windows URL after the browser canonicalizes its separators", async () => {
+    const src = String.raw`http://127.0.0.1:1234/audio\BV1xx411c7mD.ogg`;
+    const { player, fake } = makePlayer();
+    await player.play(src);
+    expect(fake.src).toBe("http://127.0.0.1:1234/audio/BV1xx411c7mD.ogg");
+
+    fake.currentTime = 42;
+    player.pause();
+    await player.play(src);
+
+    expect(fake.currentTime).toBe(42);
+    expect(fake.paused).toBe(false);
+  });
+
+  it("restarts from zero when switching to a different src", async () => {
+    const { player, fake } = makePlayer();
+    await player.play("mock://a");
+    fake.currentTime = 42;
+    await player.play("mock://b");
+    expect(fake.currentTime).toBe(0);
   });
 
   it("pauses", () => {

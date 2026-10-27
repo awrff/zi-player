@@ -9,6 +9,8 @@ type Listener = () => void;
  */
 export class AudioPlayer {
   private audio: HTMLAudioElement;
+  /** Last source requested via `play`; the DOM may normalize it (e.g. `\` → `/`). */
+  private requestedSrc: string | null = null;
   private listeners = new Set<Listener>();
   private errorListeners = new Set<(event: Event) => void>();
 
@@ -54,7 +56,11 @@ export class AudioPlayer {
   };
 
   async play(src: string): Promise<void> {
-    if (this.audio.src !== src) {
+    // Compare against the requested source, not `audio.src`: browsers rewrite
+    // Windows backslashes and escape URL characters, so the normalized value
+    // never matches the original and would restart paused tracks from zero.
+    if (this.requestedSrc !== src) {
+      this.requestedSrc = src;
       this.audio.src = src;
       this.audio.currentTime = 0;
     }
