@@ -1,190 +1,36 @@
 # ZI Player
 
-一个跨平台桌面应用：解析 B 站视频链接，把每个视频渲染成一张歌曲卡片
-（封面 + 歌曲 + 名称）放在磨砂玻璃 board 上，并以纯音频方式播放。
+ZI Player 是 Windows 和 Linux 上的桌面播放器。它把 B 站视频链接变成歌曲卡片（封面、歌曲、名称），并播放其中的音频。
 
-## 快速开始
+## 能做什么
 
-```bash
-# 1. 安装前端依赖（需要 Node.js 22+）
-npm install
+- 识别 `bilibili.com` 视频链接和 `b23.tv` 短链
+- 用卡片展示歌曲，播放时封面旋转
+- 添加、删除、重命名和搜索
+- 打开窗口时，若剪贴板中有 B 站链接，提示导入
+- 关闭窗口后留在系统托盘
+- 随窗口宽度调整卡片列数
 
-# 2. 下载 sidecar 二进制（yt-dlp + ffmpeg，二进制不入库）
-bash scripts/fetch-binaries.sh            # 当前平台
-# bash scripts/fetch-binaries.sh --all    # 交叉打包时下载全部 4 个平台
+## 下载
 
-# 3. 启动桌面应用（还需要本机 Rust + 系统 WebView 依赖，见「先决条件」）
-npm run tauri dev
-```
+提供 Windows 和 Linux 安装包。
 
-## 技术栈
+从 [GitHub Releases](https://github.com/awrff/zi-player/releases/latest) 下载最新版本。
 
-- **外壳**：Tauri v2（Rust + WebView）—— 安装包约 21 MB、启动快、支持托盘 / 剪贴板
-- **前端**：React 19 + TypeScript + Vite + Ant Design 6（Ubuntu 简约风 + 磨砂玻璃主题）
-- **状态**：Zustand（`persist` 持久化到 localStorage）
-- **解析/下载**：yt-dlp（Tauri sidecar，仅音频流）+ ffmpeg（Tauri sidecar，AAC → Vorbis 转码）
-- **测试**：Vitest + React Testing Library（单元）、Playwright（集成）
+| 系统 | 文件 |
+| --- | --- |
+| Windows | `ZI Player_*_x64-setup.exe` |
+| Linux | `.AppImage` 或 `.deb` |
 
-## 目录结构
+安装前，用同一 Release 页面上的 `SHA256SUMS` 核对文件。已安装的版本会在启动时检查更新。
 
-```
-src/
-  lib/          native 适配器、解析器、播放器、导入器
-  store/        Zustand 视频管理 store
-  hooks/        usePlayer / useClipboardWatch
-  components/   Board / Turntable / VinylDisc / PlayerBar / 弹窗
-  styles/       Ubuntu 磨砂玻璃主题 + 全局样式
-src-tauri/
-  src/          Rust 命令（resolve_video / download_audio）、托盘、窗口生命周期
-  binaries/     yt-dlp / ffmpeg sidecar 放置目录（由 scripts/fetch-binaries.sh 生成）
-tests/e2e/      Playwright 集成测试
-```
+## 使用
 
-## 先决条件
-
-前端与单元测试只需要 Node；`npm run tauri dev` / `tauri build` / `cargo test` 还需要本机系统依赖。
-精简的 CI / agent 镜像通常缺这些包，**完整桌面构建必须在装好依赖的开发机上跑**。
-
-1. **Node.js 22+** 与 npm。
-2. **Rust 工具链**：
-   - 用 [rustup](https://www.rust-lang.org/learn/get-started#installing-rust) 安装 **stable**，需要 **Rust 1.85+**（edition 2024）。
-   - `src-tauri` 自身是 edition 2021，但 `Cargo.lock` 里已有需要 edition 2024 的依赖（例如 `indexmap` 2.14）。**rustc 1.83 会直接解析失败**。
-   - `Cargo.toml` 的 `rust-version = "1.85"` 会在更旧的工具链上尽早报错。发行版自带的 `rustc` 通常不够，请 `rustup update stable`。
-   - Windows 请使用 **MSVC** 工具链（`rustup default stable-msvc`），不要用 gnu。
-3. **系统 WebView / 编译依赖**（只在编译或运行桌面壳时需要）：
-   - **Linux**：Tauri 2 需要 **webkit2gtk 4.1**（不是 4.0）。Debian / Ubuntu：
-     ```bash
-     sudo apt update
-     sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
-       libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-       libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-     ```
-     其他发行版对应包名见 [Tauri 官方先决条件](https://v2.tauri.app/start/prerequisites/)。
-   - **macOS**：Xcode Command Line Tools（`xcode-select --install`）。
-   - **Windows**：Visual Studio 「使用 C++ 的桌面开发」+ Edge WebView2 Runtime。
-4. **yt-dlp / ffmpeg sidecar**：见下一节。二进制不入库，缺了会编不过，或播放时弹出中文错误。
-
-## Sidecar 二进制（yt-dlp + ffmpeg）
-
-yt-dlp 负责解析 / 拉音频流，ffmpeg 把 AAC 转成 Vorbis（`.ogg`），这样 Linux WebKitGTK
-只需自带的 `gstreamer1.0-plugins-base` 就能播。两者都从官方构建下载，**不进 git**。
-
-`tauri.conf.json` 的 `bundle.externalBin` 使用**嵌套路径**（相对 `src-tauri/`）：
-
-```
-src-tauri/binaries/yt-dlp/yt-dlp-<target-triple>[.exe]
-src-tauri/binaries/ffmpeg/ffmpeg-<target-triple>[.exe]
-```
-
-例如 Linux x64：
-
-```
-src-tauri/binaries/yt-dlp/yt-dlp-x86_64-unknown-linux-gnu
-src-tauri/binaries/ffmpeg/ffmpeg-x86_64-unknown-linux-gnu
-```
-
-不要把文件直接放到 `src-tauri/binaries/yt-dlp-<triple>`（扁平路径）；Tauri 找不到。
-
-### 下载
-
-```bash
-bash scripts/fetch-binaries.sh            # 只拉当前主机平台（日常开发）
-bash scripts/fetch-binaries.sh --all      # linux-x64 / macos-x64 / macos-arm64 / windows-x64
-bash scripts/fetch-binaries.sh --check    # 检查当前平台文件是否已就位
-bash scripts/check-sidecars.sh            # 校验脚本路径、externalBin、ACL、文档一致
-```
-
-`--all` 给交叉打包用：本机是 Linux 也能把 Windows / macOS 的 sidecar 先下齐。
-脚本依赖 `curl` 或 `wget`；Linux 包还要 `tar` + `xz`，Windows / macOS 包要 `unzip`。
-
-| 平台        | target triple                 | yt-dlp 来源                         | ffmpeg 来源                                      |
-| ----------- | ----------------------------- | ----------------------------------- | ------------------------------------------------ |
-| Linux x64   | `x86_64-unknown-linux-gnu`    | GitHub `yt-dlp_linux`               | BtbN `linux64-gpl` 静态构建                      |
-| macOS x64   | `x86_64-apple-darwin`         | GitHub `yt-dlp_macos`               | evermeet.cx                                      |
-| macOS arm64 | `aarch64-apple-darwin`        | GitHub `yt-dlp_macos`（Rosetta 2）  | evermeet.cx x86_64 构建（需 Rosetta 2）          |
-| Windows x64 | `x86_64-pc-windows-msvc`      | GitHub `yt-dlp.exe`                 | BtbN `win64-gpl`                                 |
-
-当前 host 的 triple：`rustc --print host-tuple`（Rust < 1.84 则看 `rustc -Vv` 的 `host:`）。
-
-### 缺文件时会发生什么
-
-- **构建期**：`src-tauri/build.rs` 会在 `tauri build` / `cargo test` 前检查当前 target 的两个 sidecar；找不到就 panic，并提示运行 `bash scripts/fetch-binaries.sh`。
-- **运行期**：启动、导入或播放时若 sidecar 缺失，会弹出中文提示，引导运行 `bash scripts/fetch-binaries.sh`，而不是抛出原生/Tauri 英文错误。yt-dlp / ffmpeg 的其他失败仍返回中文错误。**不再静默回退到原始 AAC**（Linux WebKitGTK 上通常无声、进度条不动）。请用 `--check` 确认 ffmpeg 已打包。
-
-## 常用命令
-
-```bash
-npm install                # 安装依赖
-npm run dev                # 仅启动前端（浏览器调试）
-npm run dev:mock           # 以 mock 原生层启动前端（Playwright 使用）
-npm run tauri dev          # 启动完整桌面应用（需要 Rust + 系统依赖 + sidecar）
-
-npm test                   # Vitest 单元测试（不需要 Rust / sidecar）
-npm run test:e2e           # Playwright 集成测试（首次需先 npm run e2e:install）
-npm run e2e:install        # 下载 Playwright Chromium
-
-npm run tauri build        # 打包 Windows/Linux/macOS 安装包
-```
-
-`npm run tauri build` **不能**在缺 webkit2gtk-4.1 或过旧 Rust 的环境里完成。先满足「先决条件」，再在对应平台上打包。
-
-打包产物位于 `src-tauri/target/release/bundle/`（Windows 为 `nsis/`，
-Linux 为 `deb/` / `appimage/`）。CI Release 只打这两端。
-
-## 发版
-
-人只改根目录 `VERSION`（`X.Y`，现在是 `0.3`）。补丁号 Z 由最新 `v*` tag 自动加。合进 `master` 会跑 Release：Check → 算号 → 打 NSIS / AppImage / .deb，并挂 `latest.json` 与 `SHA256SUMS`。
-
-- 日常：合 `master` → 自动下一正式号 `v0.3.Z+1`（当前尚无正式 `v0.3.*` 时是 `v0.3.0`）
-- 要 `0.4.0`：把 `VERSION` 改成 `0.4` 再合 `master`
-- 从 `develop` 出包：Actions → Release → Run workflow → 选 `develop` → `v0.3.Z-rc.N`（不占用正式 Z；GitHub 标为 prerelease）
-- 不要手推 tag / 在网页上建 Release 来出包（不会触发打包）
-
-`VERSION` 不能低于已发布的正式 `X.Y`。`*-rc.*` tag 不参与正式 Z 计数。`chore: release …` 的 push 只跑 Check，不再加号。失败后 Re-run 会复用已打的 tag。
-
-本地 `npm run tauri build` 同样会签 updater 产物，需要先注入私钥（不要把密码写进仓库）：
-
-```powershell
-$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\zi-player.key" -Raw
-$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "your-key-password"
-npm run tauri build
-```
-
-GitHub Actions secrets（仓库 Settings → Secrets）：
-
-- `TAURI_SIGNING_PRIVATE_KEY`：`~/.tauri/zi-player.key` 的**文件内容**
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`：生成密钥时的密码
-
-Workflow 权限需要 **Read and write**，否则建不了 Release。
-
-自更新 endpoint 是  
-`https://github.com/awrff/zi-player/releases/latest/download/latest.json`。  
-仓库保持私有时，已安装客户端拉不到资产，检查失败会静默忽略；公开仓库后即可用。
-
-## CI
-
-三个 workflow：`Check`（可复用）、`CI`、`Release`。
-
-- PR、push `develop`：跑 **CI** → Check（Linux + Windows）
-- push `master`：跑 **Release**（先 Check，再出包），不单独跑 CI
-- Check：Node **22** + `npm ci` + Vitest；Linux 另跑 Playwright 与 sidecar 自检；两端都 `cargo test --locked`
-
-## 功能
-
-- **链接解析**：识别 `bilibili.com/video/BV...`、`av...`、`b23.tv` 短链。
-- **歌曲 board**：封面在卡片上方、播放时旋转、名称在正下方。
-- **视频管理**：添加 / 删除 / 重命名 / 搜索过滤。
-- **剪贴板导入**：打开应用（或窗口获得焦点）时检测剪贴板中的 B 站链接并提示导入。
-- **托盘**：关闭窗口隐藏到托盘。
-- **响应式**：board 使用 `auto-fill/minmax` 网格，随窗口宽度自适应列数。
+1. 安装并打开 ZI Player。
+2. 粘贴一个 B 站视频链接并导入。
+3. 点击卡片开始播放。
+4. 关闭窗口后，从托盘图标再次打开。
 
 ## 许可证
 
-本项目以 [MIT](./LICENSE) 发布。随包分发的 yt-dlp（Unlicense）与 ffmpeg（GPL-3.0，BtbN 构建）等第三方组件的声明见 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)。
-
-## 测试说明
-
-- 所有原生能力都收敛在 `src/lib/native.ts` 适配器上；单元测试与 Playwright 通过
-  `VITE_MOCK_TAURI=1`（`.env.mock`）切换到 `native.mock.ts`，因此无需 Rust 宿主。
-- 集成测试覆盖：元素显示（封面/歌曲/名称）、布局分布（不重叠、不越界、间距一致）、
-  增删改/播放旋转/剪贴板导入交互、响应式列数变化与无横向溢出。
+本项目以 [MIT](LICENSE) 发布。随包分发的 yt-dlp（Unlicense）和 ffmpeg（GPL-3.0）见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
