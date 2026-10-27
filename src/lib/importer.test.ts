@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   resolveVideo: vi.fn(),
   fetchCover: vi.fn(),
   downloadAudio: vi.fn(),
+  cancelImport: vi.fn(async () => {}),
+  onImportProgress: vi.fn(() => () => {}),
 }));
 
 vi.mock("./native", () => ({
@@ -13,6 +15,8 @@ vi.mock("./native", () => ({
     resolveVideo: h.resolveVideo,
     fetchCover: h.fetchCover,
     downloadAudio: h.downloadAudio,
+    cancelImport: h.cancelImport,
+    onImportProgress: h.onImportProgress,
     readClipboard: vi.fn(async () => ""),
     hideWindow: vi.fn(async () => {}),
     onWindowShow: vi.fn(() => () => {}),
