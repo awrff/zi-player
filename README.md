@@ -2,13 +2,7 @@
 
 ZI Player 是 Windows 和 Linux 上的桌面播放器。它把 B 站视频链接变成歌曲卡片（封面、歌曲、名称），并播放其中的音频。
 
-<table>
-  <tr>
-    <td><img src="docs/1.png" alt="导入合集"></td>
-    <td><img src="docs/2.png" alt="歌曲卡片"></td>
-    <td><img src="docs/3.png" alt="歌单播放"></td>
-  </tr>
-</table>
+<img src="docs/3.png" alt="歌单播放" width="100%">
 
 ## 能做什么
 
