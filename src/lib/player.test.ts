@@ -137,6 +137,40 @@ describe("AudioPlayer", () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
+  it("does not fire onEnded again when pause or timeupdate follows the ended event", () => {
+    const { player, fake } = makePlayer();
+    const cb = vi.fn();
+    player.onEnded(cb);
+
+    fake.ended = true;
+    fake.emit("ended");
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    // Loading the next source fires pause while audio.ended is still true.
+    fake.paused = true;
+    fake.emit("pause");
+    fake.emit("timeupdate");
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows onEnded to fire again after playing a new source", async () => {
+    const { player, fake } = makePlayer();
+    const cb = vi.fn();
+    player.onEnded(cb);
+
+    fake.ended = true;
+    fake.emit("ended");
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    fake.ended = false;
+    await player.play("mock://b");
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    fake.ended = true;
+    fake.emit("ended");
+    expect(cb).toHaveBeenCalledTimes(2);
+  });
+
   it("propagates play() rejection so the UI can show it", async () => {
     const fake = new FakeAudio();
     fake.play = () => Promise.reject(new Error("NotSupported"));

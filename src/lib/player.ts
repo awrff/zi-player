@@ -12,7 +12,10 @@ export class AudioPlayer {
   /** Last source requested via `play`; the DOM may normalize it (e.g. `\` → `/`). */
   private requestedSrc: string | null = null;
   private listeners = new Set<Listener>();
+  private endedListeners = new Set<Listener>();
   private errorListeners = new Set<(event: Event) => void>();
+  /** Guards against duplicate `ended` callbacks within one playback session. */
+  private endedFired = false;
 
   constructor(audio: HTMLAudioElement) {
     this.audio = audio;
@@ -20,9 +23,22 @@ export class AudioPlayer {
     audio.addEventListener("loadedmetadata", this.emit);
     audio.addEventListener("play", this.emit);
     audio.addEventListener("pause", this.emit);
-    audio.addEventListener("ended", this.emit);
+    audio.addEventListener("ended", this.handleEnded);
     audio.addEventListener("error", this.handleError);
   }
+
+  /**
+   * `ended` must be handled as an event, not as a flag checked from every
+   * other event. Loading a new source fires `pause` while `audio.ended` is
+   * still true, which used to invoke the end callback a second time and skip
+   * a track.
+   */
+  private handleEnded = () => {
+    this.emit();
+    if (!this.audio.ended || this.endedFired) return;
+    this.endedFired = true;
+    this.endedListeners.forEach((fn) => fn());
+  };
 
   private emit = () => {
     this.listeners.forEach((fn) => fn());
@@ -41,11 +57,8 @@ export class AudioPlayer {
 
   /** Subscribe to track end; returns an unsubscribe function. */
   onEnded = (cb: () => void): (() => void) => {
-    const wrapped = () => {
-      if (this.audio.ended) cb();
-    };
-    this.listeners.add(wrapped);
-    return () => this.listeners.delete(wrapped);
+    this.endedListeners.add(cb);
+    return () => this.endedListeners.delete(cb);
   };
 
   /** Subscribe to media decode/load errors; the callback receives the `MediaError` code and message. */
@@ -64,6 +77,7 @@ export class AudioPlayer {
       this.audio.src = src;
       this.audio.currentTime = 0;
     }
+    this.endedFired = false;
     await this.audio.play();
   }
 
@@ -72,6 +86,7 @@ export class AudioPlayer {
   }
 
   async replay(): Promise<void> {
+    this.endedFired = false;
     this.audio.currentTime = 0;
     await this.audio.play();
   }
