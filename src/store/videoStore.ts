@@ -316,11 +316,19 @@ export const useVideoStore = create<VideoState>()(
         const { queueIds, currentId } = get();
         set({
           shuffle,
+          // Shuffle and repeat are mutually exclusive so the active mode is unambiguous.
+          repeat: shuffle ? "off" : get().repeat,
           shuffleOrder: shuffle ? shuffledOrder(queueIds, currentId) : null,
         });
       },
 
-      setRepeat: (repeat) => set({ repeat }),
+      setRepeat: (repeat) =>
+        set({
+          repeat,
+          // Enabling any repeat mode turns shuffle off.
+          shuffle: repeat === "off" ? get().shuffle : false,
+          shuffleOrder: repeat === "off" ? get().shuffleOrder : null,
+        }),
 
       removeFromQueue: (id) => {
         set((state) => ({
@@ -335,6 +343,11 @@ export const useVideoStore = create<VideoState>()(
     }),
     {
       name: "zi-player",
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted as Partial<VideoState>) };
+        // Older builds could persist shuffle and repeat together; shuffle wins.
+        return merged.shuffle ? { ...merged, repeat: "off" } : merged;
+      },
       partialize: (state) => ({
         items: state.items.map(({ importProgress: _progress, ...item }) => ({
           ...item,

@@ -168,6 +168,24 @@ describe("videoStore playlists", () => {
     expect(useVideoStore.getState().shuffleOrder).toBeNull();
   });
 
+  it("keeps shuffle and repeat mutually exclusive", () => {
+    useVideoStore.getState().setQueue(["BV1", "BV2"], "BV1");
+
+    useVideoStore.getState().setShuffle(true);
+    expect(useVideoStore.getState().shuffle).toBe(true);
+    expect(useVideoStore.getState().repeat).toBe("off");
+
+    useVideoStore.getState().setRepeat("all");
+    expect(useVideoStore.getState().repeat).toBe("all");
+    expect(useVideoStore.getState().shuffle).toBe(false);
+    expect(useVideoStore.getState().shuffleOrder).toBeNull();
+
+    useVideoStore.getState().setShuffle(true);
+    expect(useVideoStore.getState().shuffle).toBe(true);
+    expect(useVideoStore.getState().repeat).toBe("off");
+    expect(useVideoStore.getState().shuffleOrder).not.toBeNull();
+  });
+
   it("removes a library item from the play queue", () => {
     useVideoStore.getState().addVideo(meta("BV1"));
     useVideoStore.getState().addVideo(meta("BV2"));
