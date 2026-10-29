@@ -11,9 +11,9 @@ const h = vi.hoisted(() => ({
   replay: vi.fn(),
   seek: vi.fn(),
   setVolume: vi.fn(),
-  subscribe: vi.fn(() => () => {}),
-  onEnded: vi.fn(() => () => {}),
-  onError: vi.fn(() => () => {}),
+  subscribe: vi.fn((_cb: () => void) => () => {}),
+  onEnded: vi.fn((_cb: () => void) => () => {}),
+  onError: vi.fn((_cb: (code: number | null, message: string) => void) => () => {}),
   currentTime: 0,
 }));
 
@@ -75,6 +75,12 @@ beforeEach(() => {
   h.pause.mockReset();
   h.replay.mockReset();
   h.seek.mockReset();
+  h.onEnded.mockReset();
+  h.onEnded.mockImplementation(() => () => {});
+  h.onError.mockReset();
+  h.onError.mockImplementation(() => () => {});
+  h.subscribe.mockReset();
+  h.subscribe.mockImplementation(() => () => {});
   h.currentTime = 0;
   h.replay.mockResolvedValue(undefined);
   useVideoStore.setState({
@@ -160,6 +166,61 @@ describe("usePlayer playback errors", () => {
     expect(msg).toMatch(/无法播放/);
     expect(msg).toMatch(/测试曲目/);
     expect(result.current.lastError).toBe(msg);
+  });
+
+  it("ignores an AbortError caused by a new load request", async () => {
+    h.audioUrl.mockResolvedValue("data:audio/wav;base64,xxx");
+    h.play.mockRejectedValue(
+      Object.assign(new Error("The play() request was interrupted by a new load request."), {
+        name: "AbortError",
+      }),
+    );
+    const onError = vi.fn();
+    const { result } = renderHook(() => usePlayer(onError));
+
+    await act(async () => {
+      await result.current.toggle(ready);
+    });
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(result.current.lastError).toBeNull();
+    expect(result.current.preparing).toBe(false);
+  });
+
+  it("ignores a play failure from a request superseded by a newer track", async () => {
+    let rejectFirst!: (err: unknown) => void;
+    const firstPlay = new Promise<void>((_, reject) => {
+      rejectFirst = reject;
+    });
+    h.audioUrl.mockImplementation(async (path: string) => path);
+    h.play.mockImplementationOnce(() => firstPlay).mockResolvedValue(undefined);
+
+    const first = { ...ready, cachePath: "data:audio/wav;base64,xxx" };
+    const second = { ...itemB, cachePath: "data:audio/wav;base64,yyy", importStatus: "ready" as const };
+    useVideoStore.setState({ items: [first, second] });
+    const onError = vi.fn();
+    const { result } = renderHook(() => usePlayer(onError));
+
+    let firstPromise!: Promise<void>;
+    await act(async () => {
+      firstPromise = result.current.playId(first.id);
+    });
+    await act(async () => {
+      await result.current.playId(second.id);
+    });
+
+    rejectFirst(
+      Object.assign(new Error("The play() request was interrupted by a new load request."), {
+        name: "AbortError",
+      }),
+    );
+    await act(async () => {
+      await firstPromise;
+    });
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(useVideoStore.getState().currentId).toBe(second.id);
+    expect(result.current.preparing).toBe(false);
   });
 });
 
@@ -270,6 +331,42 @@ describe("usePlayer queue", () => {
     });
 
     expect(h.play).toHaveBeenCalledWith("data:audio/wav;base64,yyy");
+    expect(useVideoStore.getState().currentId).toBe(cachedB.id);
+  });
+
+  it("advances exactly one track when the current track ends", async () => {
+    readyToPlay();
+    let endedCb: (() => void) | undefined;
+    h.onEnded.mockImplementation((cb: () => void) => {
+      endedCb = cb;
+      return () => {};
+    });
+
+    const cached = { ...ready };
+    const cachedB = { ...itemB, cachePath: "data:audio/wav;base64,yyy", importStatus: "ready" as const };
+    const cachedC = {
+      ...itemB,
+      id: "BV1xx411c7mF",
+      title: "第三首",
+      cachePath: "data:audio/wav;base64,zzz",
+      importStatus: "ready" as const,
+    };
+    useVideoStore.setState({
+      items: [cached, cachedB, cachedC],
+      currentId: cached.id,
+      playing: true,
+      queueIds: [cached.id, cachedB.id, cachedC.id],
+    });
+
+    renderHook(() => usePlayer());
+    expect(endedCb).toBeTypeOf("function");
+
+    await act(async () => {
+      endedCb?.();
+    });
+
+    await vi.waitFor(() => expect(h.play).toHaveBeenCalledWith("data:audio/wav;base64,yyy"));
+    expect(h.play).toHaveBeenCalledTimes(1);
     expect(useVideoStore.getState().currentId).toBe(cachedB.id);
   });
 

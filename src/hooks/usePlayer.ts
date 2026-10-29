@@ -56,6 +56,14 @@ export function formatPlayError(title: string, err: unknown): string {
   return `无法播放「${title}」：${hostErrorText(err)}`;
 }
 
+/** A play() promise rejected because another load/pause superseded it, not because the track is broken. */
+export function isPlayInterruption(err: unknown): boolean {
+  if (typeof err === "object" && err !== null && "name" in err && (err as { name?: unknown }).name === "AbortError") {
+    return true;
+  }
+  return /interrupted by a new load request|interrupted by a call to pause|AbortError/i.test(hostErrorText(err));
+}
+
 export function formatDecodeError(code: number | null, message: string): string {
   const detail = code != null ? `（错误码 ${code}${message ? `：${message}` : ""}）` : "";
   return `音频无法解码${detail}，请确认已打包 ffmpeg 或安装系统编解码器`;
@@ -87,6 +95,7 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const [lastError, setLastError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const reportedRef = useRef(false);
+  const playTokenRef = useRef(0);
 
   const reportError = useCallback(
     (msg: string) => {
@@ -108,6 +117,8 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
 
   const playItem = useCallback(
     async (item: VideoItem) => {
+      const token = ++playTokenRef.current;
+      const isLatest = () => token === playTokenRef.current;
       const latest = useVideoStore.getState().items.find((i) => i.id === item.id) ?? item;
       if (!isPlayable(latest)) {
         reportedRef.current = false;
@@ -134,12 +145,17 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
       setPreparing(true);
       try {
         const src = await native.audioUrl(path);
+        // A newer play request (next/prev/click) superseded this one.
+        if (!isLatest()) return;
         await player.play(src);
       } catch (err) {
+        if (!isLatest()) return;
+        // Aborted by another load or a pause; the newer action owns the UI state.
+        if (isPlayInterruption(err)) return;
         setCurrent(null);
         reportError(formatPlayError(item.title, formatSidecarGuidance(err) ?? err));
       } finally {
-        setPreparing(false);
+        if (isLatest()) setPreparing(false);
       }
     },
     [setCurrent, reportError],
