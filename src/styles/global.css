@@ -909,18 +909,8 @@ body {
   color: var(--ub-orange);
 }
 
-.player-repeat-icon {
-  position: relative;
-  display: inline-flex;
-}
-
-.player-repeat-one {
-  position: absolute;
-  right: -5px;
-  bottom: -4px;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
+.player-mode svg {
+  display: block;
 }
 
 .player-progress {

@@ -16,20 +16,44 @@ import { PlayQueue } from "./PlayQueue";
 
 function ShuffleIcon() {
   return (
-    <svg width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-      <path d="M12.2 2.2h1.6v1.6h-1.2l-2.1 2.2-.9-.9 1.8-1.9H9.2V1h3zM2.2 3h3.3l2.3 2.6-.9.9L4.8 4.2H2.2zm0 8.8H4.8l6.2-6.6h1.2V7h1.6V3.8h-3.4L4.2 10.4H2.2zm10 2h-3v-1.2h1.4l-1.8-1.9.9-.9 2.1 2.2h1.2v1.6h-1.6z" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 17h3l9-9h4" />
+      <path d="m17.4 5.2 2.6 2.8-2.6 2.8" />
+      <path d="M4 7h3l9 9h4" />
+      <path d="m17.4 18.8 2.6-2.8-2.6-2.8" />
     </svg>
   );
 }
 
 function RepeatIcon({ mode }: { mode: PlayerControls["repeat"] }) {
   return (
-    <span className="player-repeat-icon">
-      <svg width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-        <path d="M2.4 6.2A5.2 5.2 0 0 1 11.8 4h1.3l-2 2h4.1V1.9l-1.5 1.5A6.8 6.8 0 0 0 .8 6.2zm11.2 3.6A5.2 5.2 0 0 1 4.2 12H2.9l2-2H.8v4.1l1.5-1.5a6.8 6.8 0 0 0 10.8-2.8z" />
-      </svg>
-      {mode === "one" ? <span className="player-repeat-one">1</span> : null}
-    </span>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M6.5 11V8.2A2.7 2.7 0 0 1 9.2 5.5H19.4" />
+      <path d="m16.2 3.1 3.2 2.4-3.2 2.4" />
+      <path d="M17.5 13V15.8A2.7 2.7 0 0 1 14.8 18.5H4.6" />
+      <path d="m7.8 20.9-3.2-2.4 3.2-2.4" />
+      {mode === "one" ? <path d="M10.8 11 12 9.6v5" /> : null}
+    </svg>
   );
 }
 
