@@ -87,6 +87,30 @@ test("prompts to import a clipboard link when the window is shown", async ({ pag
   await expect(page.getByTestId("turntable").first()).toContainText("Sample video 2");
 });
 
+test("does not prompt again for the same clipboard link", async ({ page }) => {
+  await gotoBoard(page, []);
+
+  await page.evaluate(() => {
+    window.__nativeMock!.clipboard = "https://www.bilibili.com/video/BV1xx411c7mE";
+    window.__nativeMock!.emitShow();
+  });
+
+  const modal = page.getByRole("dialog");
+  await expect(modal).toContainText("检测到剪贴板中的视频链接");
+  await modal.getByRole("button", { name: /忽\s*略/ }).click();
+  await expect(modal).toBeHidden();
+
+  await page.evaluate(() => window.__nativeMock!.emitShow());
+  await page.waitForTimeout(150);
+  await expect(modal).toBeHidden();
+
+  await page.evaluate(() => {
+    window.__nativeMock!.clipboard = "https://www.bilibili.com/video/BV1xx411c7mF";
+    window.__nativeMock!.emitShow();
+  });
+  await expect(modal).toContainText("BV1xx411c7mF");
+});
+
 test("detects a clipboard link on app open", async ({ page }) => {
   await page.addInitScript(() => {
     window.__preSetClipboard = "https://www.bilibili.com/video/BV1xx411c7mF";

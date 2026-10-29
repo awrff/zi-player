@@ -10,6 +10,8 @@
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
   --player-bar-height: 88px;
   --player-gap: 14px;
+  --scrollbar-thumb: rgba(245, 245, 247, 0.22);
+  --scrollbar-thumb-hover: rgba(233, 84, 32, 0.72);
   font-family: Ubuntu, "Ubuntu Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   font-size: 16px;
   color: var(--text);
@@ -17,6 +19,40 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* Keep every scroll area in the app on the same aubergine/orange language. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 html,
