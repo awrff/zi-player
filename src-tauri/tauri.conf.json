@@ -30,6 +30,7 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "Jayden",
     "targets": ["nsis", "deb", "appimage"],
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/yt-dlp/yt-dlp", "binaries/ffmpeg/ffmpeg"],
