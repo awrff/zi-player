@@ -12,6 +12,7 @@ import {
 import { formatDuration } from "@/lib/format";
 import { repeatLabel, shuffleLabel } from "@/lib/playQueue";
 import { PREPARING_HINT, type PlayerControls } from "@/hooks/usePlayer";
+import { player } from "@/lib/player";
 import { PlayQueue } from "./PlayQueue";
 
 function ShuffleIcon() {
@@ -61,8 +62,6 @@ export function PlayerBar({ controls }: { controls: PlayerControls }) {
   const {
     current,
     playing,
-    currentTime,
-    duration,
     volume,
     lastError,
     preparing,
@@ -83,10 +82,22 @@ export function PlayerBar({ controls }: { controls: PlayerControls }) {
   } = controls;
 
   const [queueOpen, setQueueOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(player.currentTime);
+  const [audioDuration, setAudioDuration] = useState(player.duration);
   const queueWrapRef = useRef<HTMLDivElement>(null);
   const lastVolumeRef = useRef(volume > 0 ? volume : 1);
   if (volume > 0) lastVolumeRef.current = volume;
   const muted = volume === 0;
+  const duration = current && current.duration > 0 ? current.duration : audioDuration;
+
+  useEffect(
+    () =>
+      player.subscribe(() => {
+        setCurrentTime(player.currentTime);
+        setAudioDuration(player.duration);
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!queueOpen) return;

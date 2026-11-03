@@ -1,8 +1,31 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PREPARING_HINT, type PlayerControls } from "@/hooks/usePlayer";
 import type { VideoItem } from "@/types";
+
+const h = vi.hoisted(() => ({
+  currentTime: 0,
+  duration: 0,
+  listener: undefined as (() => void) | undefined,
+  unsubscribe: vi.fn(),
+}));
+
+vi.mock("@/lib/player", () => ({
+  player: {
+    get currentTime() {
+      return h.currentTime;
+    },
+    get duration() {
+      return h.duration;
+    },
+    subscribe: vi.fn((listener: () => void) => {
+      h.listener = listener;
+      return h.unsubscribe;
+    }),
+  },
+}));
+
 import { PlayerBar } from "./PlayerBar";
 
 const item: VideoItem = {
@@ -15,13 +38,17 @@ const item: VideoItem = {
   addedAt: 1,
 };
 
+beforeEach(() => {
+  h.currentTime = 0;
+  h.duration = 0;
+  h.listener = undefined;
+  h.unsubscribe.mockReset();
+});
+
 function stub(partial: Partial<PlayerControls> = {}): PlayerControls {
   return {
     current: null,
     playing: false,
-    currentTime: 0,
-    duration: 0,
-    paused: true,
     volume: 1,
     lastError: null,
     preparing: false,
@@ -48,6 +75,18 @@ function stub(partial: Partial<PlayerControls> = {}): PlayerControls {
 }
 
 describe("PlayerBar preparing", () => {
+  it("subscribes to playback progress locally and unsubscribes on unmount", () => {
+    const { unmount } = render(<PlayerBar controls={stub({ current: item })} />);
+
+    h.currentTime = 42;
+    h.duration = 200;
+    act(() => h.listener?.());
+
+    expect(screen.getByText("0:42")).toBeInTheDocument();
+    unmount();
+    expect(h.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a Chinese preparing hint while download/transcode is in progress", () => {
     render(<PlayerBar controls={stub({ current: item, preparing: true, canPrev: true })} />);
     expect(screen.getByTestId("player-preparing")).toHaveTextContent(PREPARING_HINT);

@@ -149,8 +149,6 @@ body {
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--surface-border);
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
   overflow: auto;
 }
 
@@ -527,8 +525,6 @@ body {
   background: var(--surface);
   border: 1px solid var(--surface-border);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
   padding: 20px;
 }
 
@@ -799,6 +795,10 @@ body {
   animation: vinyl-spin 1.6s linear infinite;
 }
 
+.app-shell.is-window-hidden .vinyl-disc.spinning {
+  animation-play-state: paused;
+}
+
 .vinyl-label {
   width: 46%;
   height: 46%;
@@ -868,8 +868,6 @@ body {
   padding: 10px 20px 16px;
   background: rgba(22, 12, 20, 0.92);
   border-top: 1px solid var(--surface-border);
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
   box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
 }
 

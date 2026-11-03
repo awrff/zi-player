@@ -49,6 +49,7 @@ function BoardApp() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [clipUrl, setClipUrl] = useState<string | null>(null);
+  const [pageVisible, setPageVisible] = useState(() => document.visibilityState !== "hidden");
   const [query, setQuery] = useState("");
   const [nameModal, setNameModal] = useState<
     { mode: "create"; seedSongIds?: string[] } | { mode: "rename"; playlist: Playlist } | null
@@ -56,6 +57,12 @@ function BoardApp() {
 
   const onError = useCallback((msg: string) => message.error(msg), [message]);
   const controls = usePlayer(onError);
+
+  useEffect(() => {
+    const onVisibilityChange = () => setPageVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
 
   useEffect(() => {
     void native
@@ -233,7 +240,7 @@ function BoardApp() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={pageVisible ? "app-shell" : "app-shell is-window-hidden"}>
       <header className="app-toolbar">
         <h1 className="app-title">
           ZI <span className="accent">Player</span>

@@ -13,9 +13,6 @@ export { isReusableAudioCache } from "@/lib/importStatus";
 export interface PlayerControls {
   current: VideoItem | null;
   playing: boolean;
-  currentTime: number;
-  duration: number;
-  paused: boolean;
   volume: number;
   lastError: string | null;
   preparing: boolean;
@@ -88,9 +85,6 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const order = playOrder(queueIds, shuffleOrder);
   const queue = resolvePlaylistSongs(order, items);
 
-  const [currentTime, setCurrentTime] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [paused, setPaused] = useState(true);
   const [volume, setVolumeState] = useState(1);
   const [lastError, setLastError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
@@ -165,11 +159,6 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   playItemRef.current = playItem;
 
   useEffect(() => {
-    const unsub = player.subscribe(() => {
-      setCurrentTime(player.currentTime);
-      setAudioDuration(player.duration);
-      setPaused(player.paused);
-    });
     const unsubEnded = player.onEnded(() => {
       const state = useVideoStore.getState();
       if (state.repeat === "one" && state.currentId) {
@@ -193,7 +182,6 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
       reportError(formatDecodeError(code, message));
     });
     return () => {
-      unsub();
       unsubEnded();
       unsubError();
     };
@@ -202,8 +190,6 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   useEffect(() => {
     if (currentId === null) player.pause();
   }, [currentId]);
-
-  const duration = current && current.duration > 0 ? current.duration : audioDuration;
 
   const toggle = useCallback(
     async (item: VideoItem) => {
@@ -347,9 +333,6 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   return {
     current,
     playing,
-    currentTime,
-    duration,
-    paused,
     volume,
     lastError,
     preparing,
