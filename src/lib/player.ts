@@ -85,6 +85,14 @@ export class AudioPlayer {
     this.audio.pause();
   }
 
+  /** Stop playback and release the underlying media resource before file deletion. */
+  stop(): void {
+    this.pause();
+    this.requestedSrc = null;
+    this.audio.removeAttribute("src");
+    this.audio.load();
+  }
+
   async replay(): Promise<void> {
     this.endedFired = false;
     this.audio.currentTime = 0;

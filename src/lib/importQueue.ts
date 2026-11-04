@@ -285,6 +285,13 @@ async function runJob(id: string): Promise<void> {
     failItem(workingId, "failed", jobError(err, phase));
   } finally {
     stopProgress(workingId);
+    // A cancelled resolve/download can still finish after its record is gone.
+    // Remove any late cover/audio/temp file so deletion cannot recreate orphans.
+    for (const discardedId of new Set([id, workingId])) {
+      if (!useVideoStore.getState().has(discardedId)) {
+        void native.deleteSongCache(discardedId).catch(() => {});
+      }
+    }
     activeIds.delete(workingId);
     activeIds.delete(id);
     pump();

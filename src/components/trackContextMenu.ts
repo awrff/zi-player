@@ -107,7 +107,7 @@ export function buildTrackMenu(item: VideoItem, playing: boolean, handlers: Trac
       if (key === "delete" && handlers.onDelete) {
         Modal.confirm({
           title: "删除这条记录？",
-          content: "会从资料库和所有歌单中移除。",
+          content: "会从资料库和所有歌单中移除，并删除已下载的音频和封面。",
           okText: "删除",
           cancelText: "取消",
           onOk: () => handlers.onDelete?.(item),

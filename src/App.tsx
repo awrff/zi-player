@@ -180,16 +180,21 @@ function BoardApp() {
   };
 
   const deleteFromLibrary = (ids: string[]) => {
+    if (ids.length === 0) return;
     for (const id of ids) cancelImport(id);
+    if (currentId !== null && ids.includes(currentId)) controls.stop();
     if (ids.length === 1) removeVideo(ids[0]);
     else removeManyVideos(ids);
+    // Deleting the library record is independent from best-effort disk cleanup.
+    // A future orphan-cache maintenance feature can handle files locked here.
+    for (const id of ids) void native.deleteSongCache(id).catch(() => {});
   };
 
   const confirmDeleteMany = (ids: string[]) => {
     if (ids.length === 0) return;
     Modal.confirm({
       title: ids.length === 1 ? "删除这条记录？" : `删除 ${ids.length} 条记录？`,
-      content: "会从资料库和所有歌单中移除。",
+      content: "会从资料库和所有歌单中移除，并删除已下载的音频和封面。",
       okText: "删除",
       cancelText: "取消",
       onOk: () => deleteFromLibrary(ids),

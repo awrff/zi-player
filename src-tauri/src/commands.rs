@@ -500,6 +500,84 @@ pub async fn fetch_cover(app: AppHandle, id: String, url: String) -> Result<Stri
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Delete every audio/download/temp/cover file belonging to a song. Missing
+/// files are already clean, so repeated calls and partially imported songs are
+/// safe. The id is matched against direct child names rather than used as a
+/// path, keeping deletion inside the two application-owned cache directories.
+#[tauri::command]
+pub fn delete_song_cache(app: AppHandle, id: String) -> Result<(), String> {
+    if !valid_cache_id(&id) {
+        return Err("无效的歌曲 ID".to_string());
+    }
+
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut errors = Vec::new();
+    for dir in [root.join("audio"), root.join("covers")] {
+        if let Err(e) = remove_cached_files(&dir, &id) {
+            errors.push(e);
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("；"))
+    }
+}
+
+fn valid_cache_id(id: &str) -> bool {
+    !id.is_empty()
+        && id != "."
+        && id != ".."
+        && !id.chars().any(|c| matches!(c, '/' | '\\' | '\0'))
+}
+
+fn remove_cached_files(dir: &Path, id: &str) -> Result<(), String> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(format!("无法读取缓存目录 {}：{e}", dir.display())),
+    };
+
+    let prefix = format!("{id}.");
+    let mut errors = Vec::new();
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(e) => {
+                errors.push(format!("无法读取缓存项：{e}"));
+                continue;
+            }
+        };
+        let path = entry.path();
+        let matches_id = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with(&prefix));
+        if !matches_id {
+            continue;
+        }
+
+        match entry.file_type() {
+            Ok(kind) if kind.is_file() || kind.is_symlink() => {
+                if let Err(e) = std::fs::remove_file(&path) {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        errors.push(format!("无法删除缓存文件 {}：{e}", path.display()));
+                    }
+                }
+            }
+            Ok(_) => {}
+            Err(e) => errors.push(format!("无法检查缓存文件 {}：{e}", path.display())),
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("；"))
+    }
+}
+
 /// Build a playable `http://127.0.0.1:<port>/...` URL for a cached audio file.
 /// The loopback HTTP server (see `audio_server`) serves the file with Range
 /// support so WebKitGTK can both play and seek it.
@@ -1039,6 +1117,69 @@ mod tests {
         assert_eq!(find_raw_download(&dir, "BV123"), None);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn remove_cached_files_deletes_only_the_requested_song() {
+        let root = std::env::temp_dir().join("zi-player-delete-cache");
+        let audio = root.join("audio");
+        let covers = root.join("covers");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&audio).unwrap();
+        std::fs::create_dir_all(&covers).unwrap();
+
+        for name in [
+            "BV123.ogg",
+            "BV123.tmp.ogg",
+            "BV123.m4a",
+            "BV123.m4a.part",
+            "BV123.part",
+            "BV1234.ogg",
+            "BV123_p2.ogg",
+            "unrelated.txt",
+        ] {
+            std::fs::write(audio.join(name), b"audio").unwrap();
+        }
+        for name in ["BV123.jpg", "BV123.webp", "BV1234.jpg"] {
+            std::fs::write(covers.join(name), b"cover").unwrap();
+        }
+
+        remove_cached_files(&audio, "BV123").unwrap();
+        remove_cached_files(&covers, "BV123").unwrap();
+        // Cache deletion is idempotent, including when the directory is gone.
+        remove_cached_files(&audio, "BV123").unwrap();
+        remove_cached_files(&root.join("missing"), "BV123").unwrap();
+
+        for name in [
+            "BV123.ogg",
+            "BV123.tmp.ogg",
+            "BV123.m4a",
+            "BV123.m4a.part",
+            "BV123.part",
+        ] {
+            assert!(!audio.join(name).exists(), "{name} should be deleted");
+        }
+        assert!(!covers.join("BV123.jpg").exists());
+        assert!(!covers.join("BV123.webp").exists());
+        for path in [
+            audio.join("BV1234.ogg"),
+            audio.join("BV123_p2.ogg"),
+            audio.join("unrelated.txt"),
+            covers.join("BV1234.jpg"),
+        ] {
+            assert!(path.is_file(), "{} should be preserved", path.display());
+        }
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cache_id_validation_rejects_path_like_values() {
+        assert!(valid_cache_id("BV1xx411c7mD"));
+        assert!(valid_cache_id("BV1xx411c7mD_p2"));
+        for id in ["", ".", "..", "../escape", "a/b", r"a\b", "a\0b"] {
+            assert!(!valid_cache_id(id), "{id:?} should be rejected");
+        }
     }
 
     #[test]

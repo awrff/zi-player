@@ -34,6 +34,16 @@
     "targets": ["nsis", "deb", "appimage"],
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/yt-dlp/yt-dlp", "binaries/ffmpeg/ffmpeg"],
+    "windows": {
+      "nsis": {
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    },
+    "linux": {
+      "deb": {
+        "postRemoveScript": "./linux/deb/postrm"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

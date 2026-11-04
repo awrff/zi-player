@@ -282,7 +282,7 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   }, [setPlaying]);
 
   const stop = useCallback(() => {
-    player.pause();
+    player.stop();
     setCurrent(null);
   }, [setCurrent]);
 

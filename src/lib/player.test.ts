@@ -8,6 +8,7 @@ class FakeAudio {
   paused = true;
   ended = false;
   volume = 1;
+  loadCount = 0;
   private listeners = new Map<string, Set<() => void>>();
 
   get src() {
@@ -40,6 +41,16 @@ class FakeAudio {
   pause() {
     this.paused = true;
     this.emit("pause");
+  }
+
+  removeAttribute(name: string) {
+    if (name === "src") this.source = "";
+  }
+
+  load() {
+    this.loadCount += 1;
+    this.paused = true;
+    this.currentTime = 0;
   }
 }
 
@@ -91,6 +102,19 @@ describe("AudioPlayer", () => {
     const { player, fake } = makePlayer();
     player.pause();
     expect(fake.paused).toBe(true);
+  });
+
+  it("stops and releases the media source", async () => {
+    const { player, fake } = makePlayer();
+    await player.play("mock://a");
+    player.stop();
+
+    expect(fake.src).toBe("");
+    expect(fake.paused).toBe(true);
+    expect(fake.loadCount).toBe(1);
+
+    await player.play("mock://a");
+    expect(fake.src).toBe("mock://a");
   });
 
   it("replays from the start without changing src", async () => {

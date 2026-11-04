@@ -33,6 +33,13 @@ ZI Player 是 Windows 和 Linux 上的桌面播放器。它把 B 站视频链接
 3. 点击卡片开始播放。
 4. 关闭窗口后，从托盘图标再次打开。
 
+## 缓存与卸载
+
+- 从资料库删除歌曲时，会同时清理对应的音频、下载/转码残留和封面；仅从歌单移除不会删除这些文件。
+- Windows NSIS 安装包和 Linux `.deb` 在真正卸载时会删除缓存的音频与封面，应用更新不会清空缓存。
+- Windows 缓存位于 `%APPDATA%\com.jayden.zi-player`。Linux 默认位于 `$HOME/.local/share/com.jayden.zi-player`。
+- 直接删除 AppImage 文件不会触发卸载清理，需要手动删除上述目录中的 `audio` 和 `covers`。如果 Linux 使用自定义 `XDG_DATA_HOME`，也需要手动清理对应位置。
+
 ## 许可证
 
 本项目以 [MIT](LICENSE) 发布。随包分发的 yt-dlp（Unlicense）和 ffmpeg（GPL-3.0）见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。

@@ -27,6 +27,7 @@ pub fn run() {
             commands::probe_video_collection,
             commands::download_audio,
             commands::fetch_cover,
+            commands::delete_song_cache,
             commands::audio_url,
             commands::check_sidecars,
             commands::cancel_import

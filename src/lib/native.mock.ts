@@ -12,6 +12,8 @@ export interface NativeMockControls {
   resolveDelay: number;
   downloadDelay: number;
   downloadGate: Promise<void> | null;
+  deletedSongIds: string[];
+  deleteCacheError: string | null;
   /** Collection probe responses keyed by video id, space URL, or raw URL. */
   probeFixtures: Record<string, CollectionProbe>;
   probeDelay: number;
@@ -63,6 +65,8 @@ function ensureControls(): NativeMockControls {
         resolveDelay: 50,
         downloadDelay: 30,
         downloadGate: null,
+        deletedSongIds: [],
+        deleteCacheError: null,
         probeFixtures: {},
         probeDelay: 30,
         probeError: null,
@@ -77,6 +81,8 @@ function ensureControls(): NativeMockControls {
           controls.resolveDelay = 50;
           controls.downloadDelay = 30;
           controls.downloadGate = null;
+          controls.deletedSongIds = [];
+          controls.deleteCacheError = null;
           controls.probeFixtures = {};
           controls.probeDelay = 30;
           controls.probeError = null;
@@ -119,6 +125,12 @@ export const mockNative: Native = {
   async audioUrl(path: string): Promise<string> {
     // In mock mode there is no real audio to decode; pass the path through.
     return path;
+  },
+
+  async deleteSongCache(id: string): Promise<void> {
+    const controls = ensureControls();
+    controls.deletedSongIds.push(id);
+    if (controls.deleteCacheError) throw new Error(controls.deleteCacheError);
   },
 
   async fetchCover(id: string): Promise<string> {

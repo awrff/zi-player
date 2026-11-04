@@ -56,6 +56,7 @@ test("deletes a record", async ({ page }) => {
   await page.getByRole("button", { name: /删\s*除/ }).click();
 
   await expect(page.getByTestId("board-empty")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__nativeMock!.deletedSongIds)).toEqual(["BV1xx411c7mD"]);
 });
 
 test("renames a record", async ({ page }) => {
