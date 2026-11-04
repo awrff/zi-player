@@ -1,0 +1,25 @@
+#!/bin/sh
+
+set -e
+
+# dpkg also invokes postrm during upgrades and error recovery. Only a real
+# package removal should delete user caches. The passwd path override keeps the
+# cleanup logic testable without touching real home directories.
+case "${1:-}" in
+  remove|purge)
+    passwd_file="${ZI_PLAYER_PASSWD_FILE:-/etc/passwd}"
+    if [ ! -r "$passwd_file" ]; then
+      exit 0
+    fi
+
+    while IFS=: read -r _user _password _uid _gid _gecos home _shell; do
+      if [ -z "$home" ] || [ ! -d "$home" ]; then
+        continue
+      fi
+      rm -rf -- "$home/.local/share/com.jayden.zi-player/audio"
+      rm -rf -- "$home/.local/share/com.jayden.zi-player/covers"
+    done < "$passwd_file"
+    ;;
+esac
+
+exit 0

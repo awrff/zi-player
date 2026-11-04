@@ -29,6 +29,10 @@ export const realNative: Native = {
     return invoke<string>("audio_url", { path });
   },
 
+  async deleteSongCache(id: string): Promise<void> {
+    return invoke("delete_song_cache", { id });
+  },
+
   async fetchCover(id: string, url: string): Promise<string> {
     const path = await invoke<string>("fetch_cover", { id, url });
     return convertFileSrc(path);

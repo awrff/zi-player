@@ -6,6 +6,8 @@ test("adds a record through the add dialog", async ({ page }) => {
   await page.getByRole("button", { name: /添\s*加/ }).click();
 
   const modal = page.getByRole("dialog");
+  await expect(page.locator(".ant-modal-container")).toHaveCSS("border-radius", "16px");
+  await expect(page.locator(".ant-modal-container")).toHaveCSS("background-color", "rgba(40, 26, 36, 0.96)");
   await modal.getByLabel("video-url-input").fill("https://www.bilibili.com/video/BV1xx411c7mD");
   await modal.getByRole("button", { name: /添\s*加/ }).click();
 
@@ -53,9 +55,29 @@ test("deletes a record", async ({ page }) => {
   await gotoBoard(page, sampleItems.slice(0, 1));
   await page.getByTestId("turntable").first().click({ button: "right" });
   await page.getByRole("menuitem", { name: "删除" }).click();
-  await page.getByRole("button", { name: /删\s*除/ }).click();
+  const modal = page.getByRole("dialog");
+  await expect(page.locator(".ant-modal-container")).toHaveCSS("border-radius", "16px");
+  await expect(page.locator(".ant-modal-container")).toHaveCSS("background-color", "rgba(40, 26, 36, 0.96)");
+  await modal.getByRole("button", { name: /删\s*除/ }).click();
 
   await expect(page.getByTestId("board-empty")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__nativeMock!.deletedSongIds)).toEqual(["BV1xx411c7mD"]);
+});
+
+test("uses the app theme for the update dialog", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__preSetUpdate = { version: "2.0.0", notes: "修复播放问题\n改进资料库体验" };
+  });
+  await gotoBoard(page, []);
+
+  const modal = page.getByRole("dialog");
+  await expect(modal).toContainText("发现新版本 2.0.0");
+  await expect(modal).toContainText("改进资料库体验");
+  await expect(page.locator(".ant-modal-container")).toHaveCSS("border-radius", "16px");
+  await expect(page.locator(".ant-modal-container")).toHaveCSS("background-color", "rgba(40, 26, 36, 0.96)");
+  await expect(modal.getByRole("button", { name: /更\s*新/ })).toHaveCSS("background-color", "rgb(233, 84, 32)");
+  await modal.getByRole("button", { name: /稍\s*后/ }).click();
+  await expect(modal).toBeHidden();
 });
 
 test("renames a record", async ({ page }) => {

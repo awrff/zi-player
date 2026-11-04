@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   resolveVideo: vi.fn(),
   fetchCover: vi.fn(),
   downloadAudio: vi.fn(),
+  deleteSongCache: vi.fn(async () => {}),
   cancelImport: vi.fn(async () => {}),
   onImportProgress: vi.fn((_cb: unknown) => () => {}),
 }));
@@ -17,6 +18,7 @@ vi.mock("./native", () => ({
     resolveVideo: h.resolveVideo,
     fetchCover: h.fetchCover,
     downloadAudio: h.downloadAudio,
+    deleteSongCache: h.deleteSongCache,
     cancelImport: h.cancelImport,
     onImportProgress: h.onImportProgress,
   },
@@ -49,6 +51,7 @@ beforeEach(() => {
   h.resolveVideo.mockReset();
   h.fetchCover.mockReset();
   h.downloadAudio.mockReset();
+  h.deleteSongCache.mockReset();
   h.cancelImport.mockReset();
   h.fetchCover.mockResolvedValue("");
   h.downloadAudio.mockResolvedValue("/data/audio/BV.ogg");
@@ -159,6 +162,24 @@ describe("importQueue", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(h.downloadAudio).not.toHaveBeenCalled();
+    expect(useVideoStore.getState().items).toHaveLength(0);
+    await vi.waitFor(() => expect(h.deleteSongCache).toHaveBeenCalledWith("BV1xx411c7mD"));
+  });
+
+  it("cleans a late audio result after its record is deleted", async () => {
+    let finish!: (path: string) => void;
+    h.resolveVideo.mockResolvedValue(meta("BV1xx411c7mD"));
+    h.downloadAudio.mockImplementation(() => new Promise<string>((resolve) => {
+      finish = resolve;
+    }));
+
+    enqueueImport("https://www.bilibili.com/video/BV1xx411c7mD");
+    await vi.waitFor(() => expect(h.downloadAudio).toHaveBeenCalled());
+    cancelImport("BV1xx411c7mD");
+    useVideoStore.getState().removeVideo("BV1xx411c7mD");
+    finish("/data/audio/BV1xx411c7mD.ogg");
+
+    await vi.waitFor(() => expect(h.deleteSongCache).toHaveBeenCalledWith("BV1xx411c7mD"));
     expect(useVideoStore.getState().items).toHaveLength(0);
   });
 

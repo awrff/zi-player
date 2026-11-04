@@ -32,6 +32,9 @@ export interface Native {
   /** Return a playable `http://127.0.0.1:<port>/...` URL for a cached audio file. */
   audioUrl(path: string): Promise<string>;
 
+  /** Delete cached audio, download/temp leftovers, and covers for a song. */
+  deleteSongCache(id: string): Promise<void>;
+
   /** Download the cover thumbnail locally and return an asset source URL. */
   fetchCover(id: string, url: string): Promise<string>;
 

@@ -22,6 +22,10 @@ test("imports selected episodes from a probed multi-P collection", async ({ page
   const picker = page.getByRole("dialog").filter({ has: page.getByLabel("episode-filter") });
   await expect(picker).toBeVisible();
   await expect(picker.getByRole("button", { name: "导入所选 2 个" })).toBeVisible();
+  await expect(picker.locator(".episode-toolbar .ant-input-affix-wrapper")).toHaveCSS("height", "40px");
+  for (const button of await picker.locator(".episode-toolbar .ant-btn").all()) {
+    await expect(button).toHaveCSS("height", "40px");
+  }
 
   await picker.getByRole("checkbox").nth(1).click();
   await picker.getByRole("button", { name: "导入所选 1 个" }).click();

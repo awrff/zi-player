@@ -1,4 +1,3 @@
-import { Modal } from "antd";
 import type { MenuProps } from "antd";
 import { isPlayable, normalizeImportStatus } from "@/lib/importStatus";
 import type { Playlist, VideoItem } from "@/types";
@@ -104,15 +103,7 @@ export function buildTrackMenu(item: VideoItem, playing: boolean, handlers: Trac
       if (key === "queue") handlers.onAddToQueue?.(item);
       if (key === "new-playlist") handlers.onCreatePlaylistFor?.(item);
       if (key.startsWith("pl:")) handlers.onAddToPlaylist?.(item, key.slice(3));
-      if (key === "delete" && handlers.onDelete) {
-        Modal.confirm({
-          title: "删除这条记录？",
-          content: "会从资料库和所有歌单中移除。",
-          okText: "删除",
-          cancelText: "取消",
-          onOk: () => handlers.onDelete?.(item),
-        });
-      }
+      if (key === "delete") handlers.onDelete?.(item);
     },
   };
 }

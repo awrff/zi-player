@@ -1,5 +1,6 @@
 import type { Native } from "./native";
 import type { CollectionProbe, ImportProgressEvent, VideoMeta } from "@/types";
+import type { AppUpdate } from "./native";
 import { extractVideoId, isSpaceListUrl, parseSpaceList } from "./parser";
 import { silentWavDataUri } from "./silentWav";
 
@@ -12,11 +13,14 @@ export interface NativeMockControls {
   resolveDelay: number;
   downloadDelay: number;
   downloadGate: Promise<void> | null;
+  deletedSongIds: string[];
+  deleteCacheError: string | null;
   /** Collection probe responses keyed by video id, space URL, or raw URL. */
   probeFixtures: Record<string, CollectionProbe>;
   probeDelay: number;
   /** When set, probeVideoCollection rejects with this message. */
   probeError: string | null;
+  update: AppUpdate | null;
   emitShow(): void;
   reset(): void;
 }
@@ -26,6 +30,8 @@ declare global {
     __nativeMock?: NativeMockControls;
     /** Set by Playwright before load to simulate a clipboard value on open. */
     __preSetClipboard?: string;
+    /** Set by Playwright before load to simulate an available app update. */
+    __preSetUpdate?: AppUpdate;
   }
 }
 
@@ -63,9 +69,12 @@ function ensureControls(): NativeMockControls {
         resolveDelay: 50,
         downloadDelay: 30,
         downloadGate: null,
+        deletedSongIds: [],
+        deleteCacheError: null,
         probeFixtures: {},
         probeDelay: 30,
         probeError: null,
+        update: window.__preSetUpdate ?? null,
         emitShow() {
           window.__nativeMock?.showHandler?.();
         },
@@ -77,9 +86,12 @@ function ensureControls(): NativeMockControls {
           controls.resolveDelay = 50;
           controls.downloadDelay = 30;
           controls.downloadGate = null;
+          controls.deletedSongIds = [];
+          controls.deleteCacheError = null;
           controls.probeFixtures = {};
           controls.probeDelay = 30;
           controls.probeError = null;
+          controls.update = null;
         },
     };
   }
@@ -121,6 +133,12 @@ export const mockNative: Native = {
     return path;
   },
 
+  async deleteSongCache(id: string): Promise<void> {
+    const controls = ensureControls();
+    controls.deletedSongIds.push(id);
+    if (controls.deleteCacheError) throw new Error(controls.deleteCacheError);
+  },
+
   async fetchCover(id: string): Promise<string> {
     await new Promise((r) => setTimeout(r, 20));
     return coverDataUri(id, 200);
@@ -153,7 +171,7 @@ export const mockNative: Native = {
   },
 
   async checkUpdate() {
-    return null;
+    return ensureControls().update;
   },
 
   async installUpdate() {},

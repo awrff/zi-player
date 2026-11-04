@@ -47,6 +47,10 @@ jobs:
           bash scripts/check-sidecars.sh
           bash scripts/fetch-binaries.sh --self-test
 
+      - name: Uninstall cleanup checks
+        if: runner.os == 'Linux'
+        run: bash scripts/check-uninstall-cleanup.sh
+
       - name: Install Playwright Chromium
         if: runner.os == 'Linux'
         run: npx playwright install --with-deps chromium
