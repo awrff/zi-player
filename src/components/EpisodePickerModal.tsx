@@ -83,7 +83,7 @@ export function EpisodePickerModal({ open, probe, onClose, onEnqueued }: Episode
       <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
         共 {probe.episodes.length} 集，已全选。取消勾选或筛选后再导入。
       </Typography.Paragraph>
-      <Space.Compact style={{ width: "100%", marginBottom: 12 }}>
+      <Space.Compact className="episode-toolbar" style={{ width: "100%", marginBottom: 12 }}>
         <Input
           prefix={<SearchOutlined style={{ color: "var(--text-dim)" }} />}
           placeholder="搜索选集标题"
@@ -99,19 +99,15 @@ export function EpisodePickerModal({ open, probe, onClose, onEnqueued }: Episode
           清空
         </Button>
       </Space.Compact>
-      <div style={{ maxHeight: 380, overflowY: "auto", scrollbarGutter: "stable", paddingRight: 12 }}>
+      <div className="episode-list">
         {visible.map((ep) => (
-          <div key={ep.index} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
-            <Checkbox
-              checked={selected.has(ep.index)}
-              onChange={(e) => toggle(ep.index, e.target.checked)}
-              style={{ flex: 1, minWidth: 0 }}
-            >
-              <span style={{ color: "var(--text-dim)", marginRight: 8 }}>{ep.index}</span>
-              <span style={{ wordBreak: "break-all" }}>{ep.title}</span>
+          <div key={ep.index} className="episode-row">
+            <Checkbox checked={selected.has(ep.index)} onChange={(e) => toggle(ep.index, e.target.checked)}>
+              <span className="episode-index">{ep.index}</span>
+              <span className="episode-title">{ep.title}</span>
             </Checkbox>
             {ep.duration > 0 && (
-              <Typography.Text type="secondary" style={{ flexShrink: 0 }}>
+              <Typography.Text type="secondary" className="episode-duration">
                 {formatDuration(ep.duration)}
               </Typography.Text>
             )}

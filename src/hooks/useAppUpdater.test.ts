@@ -10,9 +10,13 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("antd", () => ({
-  Modal: {
-    confirm: h.confirm,
-    error: h.error,
+  App: {
+    useApp: () => ({
+      modal: {
+        confirm: h.confirm,
+        error: h.error,
+      },
+    }),
   },
 }));
 

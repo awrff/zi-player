@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Modal } from "antd";
+import { App as AntApp } from "antd";
 import { native } from "@/lib/native";
 
 function errorText(error: unknown): string {
@@ -13,12 +13,14 @@ function errorText(error: unknown): string {
 }
 
 export function useAppUpdater(): void {
+  const { modal } = AntApp.useApp();
+
   useEffect(() => {
     let disposed = false;
 
     void native.checkUpdate().then((update) => {
       if (disposed || !update) return;
-      Modal.confirm({
+      modal.confirm({
         title: `发现新版本 ${update.version}`,
         content: update.notes || "下载并安装更新？安装完成后应用会重启。",
         okText: "更新",
@@ -28,7 +30,7 @@ export function useAppUpdater(): void {
             await native.installUpdate();
             await native.relaunch();
           } catch (error) {
-            Modal.error({
+            modal.error({
               title: "更新失败",
               content: `下载或安装更新时出错：${errorText(error)}`,
               okText: "知道了",
@@ -41,5 +43,5 @@ export function useAppUpdater(): void {
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [modal]);
 }

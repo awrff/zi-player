@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { App as AntApp, Button, ConfigProvider, Input, Modal, Segmented } from "antd";
+import { App as AntApp, Button, ConfigProvider, Input, Segmented } from "antd";
 import { AppstoreOutlined, PlusOutlined, SearchOutlined, UnorderedListOutlined } from "@ant-design/icons";
 import { theme } from "@/styles/theme";
 import { useVideoStore } from "@/store/videoStore";
@@ -26,7 +26,7 @@ import type { BoardViewMode, LibrarySelection, Playlist, VideoItem } from "@/typ
 import "./styles/global.css";
 
 function BoardApp() {
-  const { message } = AntApp.useApp();
+  const { message, modal } = AntApp.useApp();
   const items = useVideoStore((s) => s.items);
   const playlists = useVideoStore((s) => s.playlists);
   const selectedLibrary = useVideoStore((s) => s.selectedLibrary);
@@ -192,11 +192,12 @@ function BoardApp() {
 
   const confirmDeleteMany = (ids: string[]) => {
     if (ids.length === 0) return;
-    Modal.confirm({
+    modal.confirm({
       title: ids.length === 1 ? "删除这条记录？" : `删除 ${ids.length} 条记录？`,
       content: "会从资料库和所有歌单中移除，并删除已下载的音频和封面。",
       okText: "删除",
       cancelText: "取消",
+      okButtonProps: { danger: true },
       onOk: () => deleteFromLibrary(ids),
     });
   };
@@ -235,11 +236,12 @@ function BoardApp() {
   };
 
   const confirmDeletePlaylist = (playlist: Playlist) => {
-    Modal.confirm({
+    modal.confirm({
       title: `删除歌单「${playlist.name}」？`,
       content: "歌曲仍会留在资料库里。",
       okText: "删除",
       cancelText: "取消",
+      okButtonProps: { danger: true },
       onOk: () => deletePlaylist(playlist.id),
     });
   };
@@ -339,7 +341,7 @@ function BoardApp() {
             selection={selectionView}
             onToggle={(item) => void controls.playFromList(item, scopedItems)}
             onRetry={(item) => retryImport(item.id)}
-            onDelete={(item) => deleteFromLibrary([item.id])}
+            onDelete={(item) => confirmDeleteMany([item.id])}
             onRename={renameVideo}
             playlists={playlists}
             onAddToPlaylist={handleAddToPlaylist}

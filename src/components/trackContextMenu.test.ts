@@ -69,6 +69,18 @@ describe("buildTrackMenu", () => {
     menu.onClick?.({ key: "queue", keyPath: ["queue"], item: {}, domEvent: { stopPropagation() {} } } as never);
     expect(onAddToQueue).toHaveBeenCalledWith(item);
   });
+
+  it("delegates deletion to the app-level confirmation handler", () => {
+    const onDelete = vi.fn();
+    const menu = buildTrackMenu(item, false, {
+      onToggle: () => {},
+      onRename: () => {},
+      onDelete,
+    });
+    menu.onClick?.({ key: "delete", keyPath: ["delete"], item: {}, domEvent: { stopPropagation() {} } } as never);
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledWith(item);
+  });
 });
 
 describe("buildBatchTrackMenu", () => {
