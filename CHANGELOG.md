@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-05
+
+### Added
+
+- 删除歌曲或卸载应用时同步清理音频与封面缓存。
+
+### Changed
+
+- 统一全部弹窗的视觉风格、布局和内部控件样式。
+
+### Fixed
+
+- 应用更新改用 Release 直接下载地址，提升更新下载可靠性。
+
 ## [1.0.0] - 2026-10-29
 
 First stable release.
@@ -36,7 +50,8 @@ First stable release.
 
 - Promote develop; Chinese errors for playback / sidecar / import
 
-[Unreleased]: https://github.com/awrff/zi-player/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/awrff/zi-player/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/awrff/zi-player/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/awrff/zi-player/compare/v0.3.6...v1.0.0
 [0.2.0]: https://github.com/awrff/zi-player/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/awrff/zi-player/compare/v0.1.1...v0.1.2
