@@ -2,6 +2,16 @@ import { useEffect } from "react";
 import { Modal } from "antd";
 import { native } from "@/lib/native";
 
+function errorText(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return String(error);
+}
+
 export function useAppUpdater(): void {
   useEffect(() => {
     let disposed = false;
@@ -14,8 +24,16 @@ export function useAppUpdater(): void {
         okText: "更新",
         cancelText: "稍后",
         onOk: async () => {
-          await native.installUpdate();
-          await native.relaunch();
+          try {
+            await native.installUpdate();
+            await native.relaunch();
+          } catch (error) {
+            Modal.error({
+              title: "更新失败",
+              content: `下载或安装更新时出错：${errorText(error)}`,
+              okText: "知道了",
+            });
+          }
         },
       });
     });

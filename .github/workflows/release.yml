@@ -152,14 +152,22 @@ jobs:
           releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
           updaterJsonPreferNsis: true
 
   checksums:
     needs: [version, publish]
     runs-on: ubuntu-22.04
     steps:
-      - name: Upload SHA256SUMS
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Use direct updater URLs and upload SHA256SUMS
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -168,5 +176,30 @@ jobs:
           gh release download "${TAG}" --repo "${{ github.repository }}" --dir "${WORK}"
           cd "${WORK}"
           rm -f SHA256SUMS
+          gh api "repos/${{ github.repository }}/releases/tags/${TAG}" > release.json
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const manifest = JSON.parse(readFileSync("latest.json", "utf8"));
+          const release = JSON.parse(readFileSync("release.json", "utf8"));
+          const directUrls = new Map(
+            release.assets.map((asset) => [String(asset.id), asset.browser_download_url]),
+          );
+          let rewritten = 0;
+
+          for (const [platform, entry] of Object.entries(manifest.platforms ?? {})) {
+            const match = /^https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/releases\/assets\/(\d+)$/.exec(entry.url);
+            if (!match) continue;
+            const directUrl = directUrls.get(match[1]);
+            if (!directUrl) throw new Error(`No release asset found for ${platform}: ${entry.url}`);
+            entry.url = directUrl;
+            rewritten += 1;
+          }
+
+          writeFileSync("latest.json", `${JSON.stringify(manifest, null, 2)}\n`);
+          console.log(`Rewrote ${rewritten} updater download URL(s)`);
+          NODE
+          rm release.json
+          gh release upload "${TAG}" latest.json --repo "${{ github.repository }}" --clobber
           sha256sum * > SHA256SUMS
           gh release upload "${TAG}" SHA256SUMS --repo "${{ github.repository }}" --clobber
