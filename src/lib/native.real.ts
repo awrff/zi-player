@@ -4,7 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import type { Native } from "./native";
+import type { Native, TaskbarCommand, TaskbarTransport } from "./native";
 import type { CollectionProbe, ImportProgressEvent, VideoMeta } from "@/types";
 
 let pendingUpdate: Update | null = null;
@@ -72,6 +72,21 @@ export const realNative: Native = {
     return () => {
       void unlisten.then((fn) => fn());
     };
+  },
+
+  onTaskbarCommand(cb: (command: TaskbarCommand) => void): () => void {
+    const unlisten = listen<TaskbarCommand>("taskbar-command", (event) => cb(event.payload));
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  },
+
+  async setTaskbarTransport(state: TaskbarTransport): Promise<void> {
+    await invoke("set_taskbar_transport", {
+      playing: state.playing,
+      canPrev: state.canPrev,
+      canNext: state.canNext,
+    });
   },
 
   async checkUpdate() {

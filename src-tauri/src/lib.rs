@@ -1,6 +1,7 @@
 mod audio_server;
 mod bilibili;
 mod commands;
+mod taskbar;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -30,9 +31,17 @@ pub fn run() {
             commands::delete_song_cache,
             commands::audio_url,
             commands::check_sidecars,
-            commands::cancel_import
+            commands::cancel_import,
+            taskbar::set_taskbar_transport
         ])
         .setup(|app| {
+            #[cfg(windows)]
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(hwnd) = window.hwnd() {
+                    taskbar::attach(app.handle().clone(), hwnd);
+                }
+            }
+
             let show_item = MenuItem::with_id(app, "show", "显示", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
@@ -66,7 +75,8 @@ pub fn run() {
             // backend can only load <audio> from a standard http(s) scheme, not
             // the asset:// custom protocol or blob: URLs.
             let root = app.path().app_data_dir()?;
-            let port = audio_server::start(root).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            let port = audio_server::start(root)
+                .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(audio_server::AudioServerState { port });
 
             Ok(())

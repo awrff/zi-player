@@ -170,6 +170,12 @@ export const mockNative: Native = {
     };
   },
 
+  onTaskbarCommand(): () => void {
+    return () => {};
+  },
+
+  async setTaskbarTransport(): Promise<void> {},
+
   async checkUpdate() {
     return ensureControls().update;
   },

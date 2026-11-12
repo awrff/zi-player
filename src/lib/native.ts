@@ -56,6 +56,12 @@ export interface Native {
   /** Subscribe to window show/focus events; returns an unsubscribe function. */
   onWindowShow(cb: () => void): () => void;
 
+  /** Taskbar thumbnail toolbar: previous, play/pause, or next. */
+  onTaskbarCommand(cb: (command: TaskbarCommand) => void): () => void;
+
+  /** Push play/pause and skip availability to the taskbar thumbnail buttons. */
+  setTaskbarTransport(state: TaskbarTransport): Promise<void>;
+
   checkUpdate(): Promise<AppUpdate | null>;
   installUpdate(): Promise<void>;
   relaunch(): Promise<void>;
@@ -64,6 +70,14 @@ export interface Native {
 export interface AppUpdate {
   version: string;
   notes: string;
+}
+
+export type TaskbarCommand = "prev" | "toggle" | "next";
+
+export interface TaskbarTransport {
+  playing: boolean;
+  canPrev: boolean;
+  canNext: boolean;
 }
 
 const useMock = import.meta.env.VITE_MOCK_TAURI === "1";
