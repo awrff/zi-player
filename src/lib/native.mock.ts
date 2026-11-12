@@ -180,7 +180,9 @@ export const mockNative: Native = {
     return ensureControls().update;
   },
 
-  async installUpdate() {},
+  async downloadUpdate() {},
+
+  async installDownloaded() {},
 
   async relaunch() {},
 };

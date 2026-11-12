@@ -63,7 +63,9 @@ export interface Native {
   setTaskbarTransport(state: TaskbarTransport): Promise<void>;
 
   checkUpdate(): Promise<AppUpdate | null>;
-  installUpdate(): Promise<void>;
+  /** `total` is null when the server did not send a content length. */
+  downloadUpdate(onProgress?: (loaded: number, total: number | null) => void): Promise<void>;
+  installDownloaded(): Promise<void>;
   relaunch(): Promise<void>;
 }
 

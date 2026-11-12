@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { App as AntApp, Button, ConfigProvider, Input, Segmented } from "antd";
-import { AppstoreOutlined, PlusOutlined, SearchOutlined, UnorderedListOutlined } from "@ant-design/icons";
+import { App as AntApp, Button, ConfigProvider, Input, Progress, Segmented } from "antd";
+import { AppstoreOutlined, ArrowUpOutlined, PlusOutlined, SearchOutlined, UnorderedListOutlined } from "@ant-design/icons";
 import { theme } from "@/styles/theme";
 import { useVideoStore } from "@/store/videoStore";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -82,7 +82,7 @@ function BoardApp() {
   useEffect(() => onImportFailed((title, detail) => message.error(`「${title}」导入失败：${detail}`)), [message]);
 
   useClipboardWatch(setClipUrl);
-  useAppUpdater();
+  const { update: availableUpdate, download: updateDownload, openDialog: openUpdateDialog } = useAppUpdater();
 
   const currentPlaylist = selectedLibrary === "all" ? null : (playlists.find((p) => p.id === selectedLibrary) ?? null);
   const resolvedSelection: LibrarySelection = currentPlaylist ? currentPlaylist.id : "all";
@@ -249,6 +249,26 @@ function BoardApp() {
   return (
     <div className={pageVisible ? "app-shell" : "app-shell is-window-hidden"}>
       <header className="app-toolbar">
+        {availableUpdate && updateDownload ? (
+          <span className="app-update-progress" data-testid="app-update" aria-label="更新">
+            <Progress
+              type="circle"
+              size={32}
+              percent={updateDownload.percent ?? 0}
+              showInfo={updateDownload.percent != null}
+              status="active"
+            />
+          </span>
+        ) : availableUpdate ? (
+          <Button
+            type="primary"
+            data-testid="app-update"
+            aria-label="更新"
+            title="更新"
+            icon={<ArrowUpOutlined />}
+            onClick={() => openUpdateDialog(availableUpdate)}
+          />
+        ) : null}
         <h1 className="app-title">
           ZI <span className="accent">Player</span>
         </h1>

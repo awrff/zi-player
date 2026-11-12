@@ -141,6 +141,16 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Read changelog
+        id: notes
+        shell: bash
+        run: |
+          {
+            echo "body<<RELEASE_NOTES_EOF"
+            node scripts/release-notes.mjs "${{ needs.version.outputs.version }}"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -149,7 +159,7 @@ jobs:
         with:
           tagName: ${{ needs.version.outputs.tag }}
           releaseName: ZI Player ${{ needs.version.outputs.tag }}
-          releaseBody: See the assets to download this version and install.
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
           uploadUpdaterJson: true
@@ -182,6 +192,9 @@ jobs:
 
           const manifest = JSON.parse(readFileSync("latest.json", "utf8"));
           const release = JSON.parse(readFileSync("release.json", "utf8"));
+          const placeholder = "See the assets to download this version and install.";
+          const body = String(release.body ?? "").trim();
+          if (body && body !== placeholder) manifest.notes = body;
           const directUrls = new Map(
             release.assets.map((asset) => [String(asset.id), asset.browser_download_url]),
           );
