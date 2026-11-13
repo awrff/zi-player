@@ -118,6 +118,47 @@ body {
   flex: 1;
 }
 
+.update-notes h2,
+.update-notes h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.update-notes h3 {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.update-notes p,
+.update-notes ul {
+  margin: 0 0 8px;
+}
+
+.update-notes ul {
+  padding-left: 1.2em;
+}
+
+.update-notes a {
+  color: var(--ub-orange);
+}
+
+.update-notes-scroll {
+  max-height: min(420px, 50vh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.update-skip {
+  margin-top: 12px;
+}
+
+.ant-modal .ant-modal-confirm-content:has(.update-dialog) {
+  max-height: none;
+  overflow: visible;
+  white-space: normal;
+}
+
 .app-body {
   display: flex;
   flex: 1;
@@ -351,6 +392,23 @@ body {
   min-height: 24px;
   line-height: 24px;
   padding: 0 8px;
+}
+
+.feedback-kind.ant-segmented {
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.feedback-kind.ant-segmented .ant-segmented-item,
+.feedback-kind.ant-segmented .ant-segmented-thumb {
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.feedback-kind.ant-segmented .ant-segmented-thumb,
+.feedback-kind.ant-segmented .ant-segmented-item-selected {
+  background: var(--surface-strong);
 }
 
 .batch-bar {

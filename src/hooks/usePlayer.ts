@@ -330,6 +330,26 @@ export function usePlayer(onError?: (msg: string) => void): PlayerControls {
   const canPrev = current !== null;
   const canNext = current !== null && nextPlayableId(order, currentId, skipMode, playableId) !== null;
 
+  useEffect(() => {
+    return native.onTaskbarCommand((command) => {
+      if (command === "prev") {
+        void playPrev();
+        return;
+      }
+      if (command === "next") {
+        void playNext();
+        return;
+      }
+      const state = useVideoStore.getState();
+      const item = state.items.find((entry) => entry.id === state.currentId);
+      if (item) void toggle(item);
+    });
+  }, [playNext, playPrev, toggle]);
+
+  useEffect(() => {
+    void native.setTaskbarTransport({ playing, canPrev, canNext });
+  }, [playing, canPrev, canNext]);
+
   return {
     current,
     playing,

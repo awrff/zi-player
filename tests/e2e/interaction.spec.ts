@@ -80,6 +80,29 @@ test("uses the app theme for the update dialog", async ({ page }) => {
   await expect(modal).toBeHidden();
 });
 
+test("skips the update dialog for this version and keeps an icon button", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__preSetUpdate = { version: "2.0.0", notes: "修复播放问题\n改进资料库体验" };
+  });
+  await gotoBoard(page, []);
+
+  const modal = page.getByRole("dialog");
+  await expect(modal).toContainText("发现新版本 2.0.0");
+  await modal.getByRole("checkbox", { name: "此版本不再提示" }).check();
+  await modal.getByRole("button", { name: /稍\s*后/ }).click();
+  await expect(modal).toBeHidden();
+
+  await page.reload();
+  const updateButton = page.getByTestId("app-update");
+  await expect(updateButton).toBeVisible();
+  await expect(updateButton).toHaveAttribute("aria-label", "更新");
+  await expect(updateButton).toHaveText("");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await updateButton.click();
+  await expect(page.getByRole("dialog")).toContainText("改进资料库体验");
+});
+
 test("renames a record", async ({ page }) => {
   await gotoBoard(page, sampleItems.slice(0, 1));
   await page.getByTestId("turntable").first().click({ button: "right" });

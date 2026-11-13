@@ -1,0 +1,15 @@
+{
+  "name": "zi-player-api",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node --test lib.test.mjs"
+  },
+  "dependencies": {
+    "nodemailer": "^7.0.11"
+  }
+}

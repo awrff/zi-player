@@ -21,6 +21,8 @@ vi.mock("@/lib/native", () => ({
   native: {
     downloadAudio: h.downloadAudio,
     audioUrl: h.audioUrl,
+    onTaskbarCommand: () => () => {},
+    setTaskbarTransport: () => Promise.resolve(),
   },
 }));
 
