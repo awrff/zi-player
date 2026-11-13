@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-13
+
+### Added
+
+- 任务栏缩略图可控制上一首、播放/暂停、下一首。
+- 应用内可提交 Bug 或功能需求。
+
+### Changed
+
+- 发现新版本时先展示更新说明并下载，下载完成后再安装。已跳过的版本不再在启动时弹出。
+
 ## [1.1.0] - 2026-11-05
 
 ### Added
@@ -50,7 +61,8 @@ First stable release.
 
 - Promote develop; Chinese errors for playback / sidecar / import
 
-[Unreleased]: https://github.com/awrff/zi-player/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/awrff/zi-player/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/awrff/zi-player/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/awrff/zi-player/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/awrff/zi-player/compare/v0.3.6...v1.0.0
 [0.2.0]: https://github.com/awrff/zi-player/compare/v0.1.2...v0.2.0

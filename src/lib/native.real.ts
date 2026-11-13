@@ -4,7 +4,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import type { Native } from "./native";
+import type { Native, TaskbarCommand, TaskbarTransport } from "./native";
+import { loadReleaseNotes } from "./releaseNotes";
 import type { CollectionProbe, ImportProgressEvent, VideoMeta } from "@/types";
 
 let pendingUpdate: Update | null = null;
@@ -74,21 +75,59 @@ export const realNative: Native = {
     };
   },
 
+  onTaskbarCommand(cb: (command: TaskbarCommand) => void): () => void {
+    const unlisten = listen<TaskbarCommand>("taskbar-command", (event) => cb(event.payload));
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  },
+
+  async setTaskbarTransport(state: TaskbarTransport): Promise<void> {
+    await invoke("set_taskbar_transport", {
+      playing: state.playing,
+      canPrev: state.canPrev,
+      canNext: state.canNext,
+    });
+  },
+
   async checkUpdate() {
     try {
       const update = await check();
       pendingUpdate = update;
       if (!update) return null;
-      return { version: update.version, notes: update.body ?? "" };
+      const notes = await loadReleaseNotes(update.version, update.body ?? "");
+      return { version: update.version, notes };
     } catch {
       pendingUpdate = null;
       return null;
     }
   },
 
-  async installUpdate() {
+  async downloadUpdate(onProgress?: (loaded: number, total: number | null) => void) {
     if (!pendingUpdate) return;
-    await pendingUpdate.downloadAndInstall();
+    let loaded = 0;
+    let total: number | null = null;
+    await pendingUpdate.download((event) => {
+      if (!onProgress) return;
+      if (event.event === "Started") {
+        const size = event.data.contentLength;
+        total = size && size > 0 ? size : null;
+        onProgress(0, total);
+        return;
+      }
+      if (event.event === "Progress") {
+        loaded += event.data.chunkLength;
+        onProgress(loaded, total);
+        return;
+      }
+      const complete = total && total > 0 ? total : Math.max(loaded, 1);
+      onProgress(complete, complete);
+    });
+  },
+
+  async installDownloaded() {
+    if (!pendingUpdate) return;
+    await pendingUpdate.install();
   },
 
   async relaunch() {

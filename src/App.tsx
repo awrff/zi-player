@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { App as AntApp, Button, ConfigProvider, Input, Segmented } from "antd";
-import { AppstoreOutlined, PlusOutlined, SearchOutlined, UnorderedListOutlined } from "@ant-design/icons";
+import { App as AntApp, Button, ConfigProvider, Input, Progress, Segmented } from "antd";
+import { AppstoreOutlined, ArrowUpOutlined, PlusOutlined, SearchOutlined, UnorderedListOutlined } from "@ant-design/icons";
 import { theme } from "@/styles/theme";
 import { useVideoStore } from "@/store/videoStore";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -14,6 +14,8 @@ import { Board } from "@/components/Board";
 import { LibrarySidebar } from "@/components/LibrarySidebar";
 import { PlayerBar } from "@/components/PlayerBar";
 import { AddVideoModal } from "@/components/AddVideoModal";
+import { FeedbackModal } from "@/components/FeedbackModal";
+import { pingDaily } from "@/lib/telemetry";
 import { ClipboardImportPrompt } from "@/components/ClipboardImportPrompt";
 import { PlaylistCover } from "@/components/PlaylistCover";
 import { PlaylistNameModal } from "@/components/PlaylistNameModal";
@@ -48,6 +50,7 @@ function BoardApp() {
   const setBoardView = useVideoStore((s) => s.setBoardView);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [clipUrl, setClipUrl] = useState<string | null>(null);
   const [pageVisible, setPageVisible] = useState(() => document.visibilityState !== "hidden");
   const [query, setQuery] = useState("");
@@ -81,8 +84,17 @@ function BoardApp() {
 
   useEffect(() => onImportFailed((title, detail) => message.error(`「${title}」导入失败：${detail}`)), [message]);
 
+  useEffect(() => {
+    void pingDaily({
+      storage: localStorage,
+      version: __APP_VERSION__,
+      ua: navigator.userAgent,
+      dev: import.meta.env.DEV,
+    }).catch(() => {});
+  }, []);
+
   useClipboardWatch(setClipUrl);
-  useAppUpdater();
+  const { update: availableUpdate, download: updateDownload, openDialog: openUpdateDialog } = useAppUpdater();
 
   const currentPlaylist = selectedLibrary === "all" ? null : (playlists.find((p) => p.id === selectedLibrary) ?? null);
   const resolvedSelection: LibrarySelection = currentPlaylist ? currentPlaylist.id : "all";
@@ -249,6 +261,26 @@ function BoardApp() {
   return (
     <div className={pageVisible ? "app-shell" : "app-shell is-window-hidden"}>
       <header className="app-toolbar">
+        {availableUpdate && updateDownload ? (
+          <span className="app-update-progress" data-testid="app-update" aria-label="更新">
+            <Progress
+              type="circle"
+              size={32}
+              percent={updateDownload.percent ?? 0}
+              showInfo={updateDownload.percent != null}
+              status="active"
+            />
+          </span>
+        ) : availableUpdate ? (
+          <Button
+            type="primary"
+            data-testid="app-update"
+            aria-label="更新"
+            title="更新"
+            icon={<ArrowUpOutlined />}
+            onClick={() => openUpdateDialog(availableUpdate)}
+          />
+        ) : null}
         <h1 className="app-title">
           ZI <span className="accent">Player</span>
         </h1>
@@ -262,6 +294,7 @@ function BoardApp() {
           aria-label="search-input"
         />
         <div className="toolbar-spacer" />
+        <Button onClick={() => setFeedbackOpen(true)}>反馈</Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
           添加
         </Button>
@@ -366,6 +399,7 @@ function BoardApp() {
       <PlayerBar controls={controls} />
 
       <AddVideoModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       <ClipboardImportPrompt url={clipUrl} onClose={() => setClipUrl(null)} />
       <PlaylistNameModal
         open={nameModal !== null}
