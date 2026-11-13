@@ -394,6 +394,23 @@ body {
   padding: 0 8px;
 }
 
+.feedback-kind.ant-segmented {
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.feedback-kind.ant-segmented .ant-segmented-item,
+.feedback-kind.ant-segmented .ant-segmented-thumb {
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.feedback-kind.ant-segmented .ant-segmented-thumb,
+.feedback-kind.ant-segmented .ant-segmented-item-selected {
+  background: var(--surface-strong);
+}
+
 .batch-bar {
   display: flex;
   align-items: center;

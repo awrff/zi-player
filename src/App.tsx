@@ -14,6 +14,8 @@ import { Board } from "@/components/Board";
 import { LibrarySidebar } from "@/components/LibrarySidebar";
 import { PlayerBar } from "@/components/PlayerBar";
 import { AddVideoModal } from "@/components/AddVideoModal";
+import { FeedbackModal } from "@/components/FeedbackModal";
+import { pingDaily } from "@/lib/telemetry";
 import { ClipboardImportPrompt } from "@/components/ClipboardImportPrompt";
 import { PlaylistCover } from "@/components/PlaylistCover";
 import { PlaylistNameModal } from "@/components/PlaylistNameModal";
@@ -48,6 +50,7 @@ function BoardApp() {
   const setBoardView = useVideoStore((s) => s.setBoardView);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [clipUrl, setClipUrl] = useState<string | null>(null);
   const [pageVisible, setPageVisible] = useState(() => document.visibilityState !== "hidden");
   const [query, setQuery] = useState("");
@@ -80,6 +83,15 @@ function BoardApp() {
   }, []);
 
   useEffect(() => onImportFailed((title, detail) => message.error(`「${title}」导入失败：${detail}`)), [message]);
+
+  useEffect(() => {
+    void pingDaily({
+      storage: localStorage,
+      version: __APP_VERSION__,
+      ua: navigator.userAgent,
+      dev: import.meta.env.DEV,
+    }).catch(() => {});
+  }, []);
 
   useClipboardWatch(setClipUrl);
   const { update: availableUpdate, download: updateDownload, openDialog: openUpdateDialog } = useAppUpdater();
@@ -282,6 +294,7 @@ function BoardApp() {
           aria-label="search-input"
         />
         <div className="toolbar-spacer" />
+        <Button onClick={() => setFeedbackOpen(true)}>反馈</Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
           添加
         </Button>
@@ -386,6 +399,7 @@ function BoardApp() {
       <PlayerBar controls={controls} />
 
       <AddVideoModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       <ClipboardImportPrompt url={clipUrl} onClose={() => setClipUrl(null)} />
       <PlaylistNameModal
         open={nameModal !== null}
